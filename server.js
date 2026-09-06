@@ -130,6 +130,21 @@ async function downloadTelegramFile(fileUrl, destPath) {
   });
 }
 
+// Helper to build safe inline keyboard for WebApp
+function getMapKeyboard(buttonText = '🗺️ បើកផែនទីអចលនទ្រព្យ (Open Map)') {
+  const currentUrl = process.env.WEBAPP_URL || WEBAPP_URL;
+  if (currentUrl && currentUrl.startsWith('https://')) {
+    return Markup.inlineKeyboard([
+      [Markup.button.webApp(buttonText, currentUrl)]
+    ]);
+  } else {
+    // If running locally on http://, fallback to standard URL or prompt to use Menu Button
+    return Markup.inlineKeyboard([
+      [Markup.button.url(buttonText, currentUrl.startsWith('http') ? currentUrl : `https://${currentUrl}`)]
+    ]);
+  }
+}
+
 // ----------------------------------------------------
 // Telegram Bot Logic (Telegraf)
 // ----------------------------------------------------
@@ -138,10 +153,16 @@ let bot = null;
 if (BOT_TOKEN && BOT_TOKEN !== 'YOUR_TELEGRAM_BOT_TOKEN_HERE') {
   bot = new Telegraf(BOT_TOKEN);
 
+  // Global Error Handler for Telegraf
+  bot.catch((err, ctx) => {
+    console.error(`❌ Bot error for update ${ctx.updateType}:`, err);
+  });
+
   // /start command
   bot.command('start', async (ctx) => {
-    const userFirstName = ctx.from.first_name || 'Agent';
-    const welcomeMsg = 
+    try {
+      const userFirstName = ctx.from.first_name || 'Agent';
+      const welcomeMsg = 
 `👋 **សួស្តី ${userFirstName}! សូមស្វាគមន៍មកកាន់ Real Estate Geotag Bot** 🏡
 
 កម្មវិធីនេះជួយលោកអ្នកថតរូបអចលនទ្រព្យ និងភ្ជាប់ជាមួយទីតាំង GPS ជាក់ស្តែងដោយស្វ័យប្រវត្តិ។
@@ -149,15 +170,15 @@ if (BOT_TOKEN && BOT_TOKEN !== 'YOUR_TELEGRAM_BOT_TOKEN_HERE') {
 **របៀបប្រើប្រាស់ (How to use):**
 1️⃣ **ផ្ញើរូបភាព (Send Photo):** ថត ឬផ្ញើរូបផ្ទះ/ដីមកកាន់ Bot នេះ
 2️⃣ **ផ្ញើទីតាំង (Send Location):** ចុចប៊ូតុង "📍 ចែករំលែកទីតាំង" ដើម្បីកំណត់កូអរដោនេ GPS
-3️⃣ **មើលផែនទី (View Map):** ចុចប៊ូតុងខាងក្រោមដើម្បីបើក Mini App មើលទីតាំងលើផែនទីអន្តរកម្ម!
+3️⃣ **មើលផែនទី (View Map):** ចុចប៊ូតុងខាងក្រោម ឬ Menu Button ដើម្បីបើក Mini App មើលទីតាំងលើផែនទីអន្តរកម្ម!
 
 សូមផ្ញើរូបភាពអចលនទ្រព្យដំបូងរបស់អ្នកឥឡូវនេះ 📷`;
 
-    await ctx.replyWithMarkdown(welcomeMsg, {
-      ...Markup.inlineKeyboard([
-        [Markup.button.webApp('🗺️ បើកផែនទីអចលនទ្រព្យ (Open Map)', WEBAPP_URL)]
-      ])
-    });
+      await ctx.replyWithMarkdown(welcomeMsg, getMapKeyboard('🗺️ បើកផែនទីអចលនទ្រព្យ (Open Map)'));
+    } catch (err) {
+      console.error('/start error:', err);
+      ctx.reply('👋 សួស្តី! សូមផ្ញើរូបភាពអចលនទ្រព្យដើម្បីចាប់ផ្តើម។');
+    }
   });
 
   // /help command
@@ -181,9 +202,7 @@ if (BOT_TOKEN && BOT_TOKEN !== 'YOUR_TELEGRAM_BOT_TOKEN_HERE') {
   bot.command('map', async (ctx) => {
     await ctx.reply(
       '🗺️ ចុចប៊ូតុងខាងក្រោមដើម្បីបើកផែនទីអចលនទ្រព្យ Mini App:',
-      Markup.inlineKeyboard([
-        [Markup.button.webApp('📍 បើកផែនទី (Open Map View)', WEBAPP_URL)]
-      ])
+      getMapKeyboard('📍 បើកផែនទី (Open Map View)')
     );
   });
 
@@ -204,11 +223,7 @@ if (BOT_TOKEN && BOT_TOKEN !== 'YOUR_TELEGRAM_BOT_TOKEN_HERE') {
         text += `_...និង ${properties.length - 5} ទីតាំងផ្សេងទៀតលើផែនទី_`;
       }
 
-      await ctx.replyWithMarkdown(text, {
-        ...Markup.inlineKeyboard([
-          [Markup.button.webApp('🗺️ មើលទាំងអស់លើផែនទី (View on Map)', WEBAPP_URL)]
-        ])
-      });
+      await ctx.replyWithMarkdown(text, getMapKeyboard('🗺️ មើលទាំងអស់លើផែនទី (View on Map)'));
     } catch (err) {
       console.error('List error:', err);
       ctx.reply('មានបញ្ហាក្នុងការទាញយកបញ្ជីអចលនទ្រព្យ។');
@@ -220,7 +235,6 @@ if (BOT_TOKEN && BOT_TOKEN !== 'YOUR_TELEGRAM_BOT_TOKEN_HERE') {
     try {
       const userId = ctx.from.id;
       const photos = ctx.message.photo;
-      // Select highest resolution photo (last in array)
       const highestResPhoto = photos[photos.length - 1];
       const fileId = highestResPhoto.file_id;
       const caption = ctx.message.caption || null;
@@ -258,9 +272,7 @@ if (BOT_TOKEN && BOT_TOKEN !== 'YOUR_TELEGRAM_BOT_TOKEN_HERE') {
           `ចុចខាងក្រោមដើម្បីពិនិត្យមើលលើផែនទី Leaflet:`,
           {
             parse_mode: 'Markdown',
-            ...Markup.inlineKeyboard([
-              [Markup.button.webApp('🗺️ មើលលើផែនទី (View on Map)', WEBAPP_URL)]
-            ])
+            ...getMapKeyboard('🗺️ មើលលើផែនទី (View on Map)')
           }
         );
       } else {
@@ -325,9 +337,7 @@ if (BOT_TOKEN && BOT_TOKEN !== 'YOUR_TELEGRAM_BOT_TOKEN_HERE') {
 
         await ctx.reply(
           '👇 បើកមើលទីតាំងលើផែនទីអន្តរកម្ម (Interactive Leaflet Map):',
-          Markup.inlineKeyboard([
-            [Markup.button.webApp('🗺️ បើកផែនទីអចលនទ្រព្យ (Open Map)', WEBAPP_URL)]
-          ])
+          getMapKeyboard('🗺️ បើកផែនទីអចលនទ្រព្យ (Open Map)')
         );
       } else {
         // Location sent first without photo
