@@ -71,6 +71,8 @@ const elements = {
   addTitle: document.getElementById('add-title'),
   addType: document.getElementById('add-type'),
   addPrice: document.getElementById('add-price'),
+  addOwnerName: document.getElementById('add-owner-name'),
+  addOwnerPhone: document.getElementById('add-owner-phone'),
   addLat: document.getElementById('add-lat'),
   addLng: document.getElementById('add-lng'),
   addNotes: document.getElementById('add-notes'),
@@ -96,6 +98,10 @@ const elements = {
   modalDateTag: document.getElementById('modal-date-tag'),
   modalTitle: document.getElementById('modal-title'),
   modalPrice: document.getElementById('modal-price'),
+  modalOwnerCard: document.getElementById('modal-owner-card'),
+  modalOwnerName: document.getElementById('modal-owner-name'),
+  btnCallOwner: document.getElementById('btn-call-owner'),
+  btnTgOwner: document.getElementById('btn-tg-owner'),
   modalNotes: document.getElementById('modal-notes'),
   modalCoords: document.getElementById('modal-coords'),
   btnCopyCoords: document.getElementById('btn-copy-coords'),
@@ -551,6 +557,26 @@ function openDetailsModal(propertyId) {
     elements.modalPrice.style.display = 'none';
   }
 
+  // Owner Info Box
+  if (property.owner_phone || property.owner_name) {
+    const displayName = property.owner_name ? `${property.owner_name} (${property.owner_phone})` : property.owner_phone;
+    elements.modalOwnerName.textContent = displayName;
+    elements.modalOwnerCard.style.display = 'flex';
+
+    if (property.owner_phone) {
+      const cleanPhone = property.owner_phone.replace(/[^0-9+]/g, '');
+      elements.btnCallOwner.href = `tel:${cleanPhone}`;
+      elements.btnCallOwner.style.display = 'flex';
+      elements.btnTgOwner.href = `https://t.me/+${cleanPhone.replace(/^0/, '855')}`;
+      elements.btnTgOwner.style.display = 'flex';
+    } else {
+      elements.btnCallOwner.style.display = 'none';
+      elements.btnTgOwner.style.display = 'none';
+    }
+  } else {
+    elements.modalOwnerCard.style.display = 'none';
+  }
+
   const lat = property.latitude;
   const lng = property.longitude;
   elements.btnGoogleMaps.href = `https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}`;
@@ -581,11 +607,12 @@ function sharePropertyDetails() {
   const p = state.selectedProperty;
   const typeInfo = PROPERTY_TYPES[p.property_type] || PROPERTY_TYPES.house;
   const priceText = p.price ? `💰 តម្លៃ: ${p.price}\n` : '';
+  const ownerText = p.owner_phone ? `📞 ម្ចាស់ផ្ទះ: ${p.owner_name ? p.owner_name + ' - ' : ''}${p.owner_phone}\n` : '';
   const notesText = p.notes ? `📝 ${p.notes}\n` : '';
   const coordsText = `📍 ទីតាំង GPS: ${p.latitude.toFixed(6)}, ${p.longitude.toFixed(6)}`;
   const gmapsUrl = `https://www.google.com/maps/search/?api=1&query=${p.latitude},${p.longitude}`;
   
-  const shareText = `${typeInfo.label} - ${p.title}\n${priceText}${notesText}${coordsText}\n🗺️ ផែនទី: ${gmapsUrl}`;
+  const shareText = `${typeInfo.label} - ${p.title}\n${priceText}${ownerText}${notesText}${coordsText}\n🗺️ ផែនទី: ${gmapsUrl}`;
 
   triggerHaptic('impact', 'medium');
 
@@ -655,6 +682,8 @@ async function handleAddPropertySubmit(e) {
   const title = elements.addTitle.value.trim();
   const propertyType = elements.addType.value;
   const price = elements.addPrice.value.trim();
+  const ownerName = elements.addOwnerName ? elements.addOwnerName.value.trim() : '';
+  const ownerPhone = elements.addOwnerPhone ? elements.addOwnerPhone.value.trim() : '';
   const latitude = parseFloat(elements.addLat.value);
   const longitude = parseFloat(elements.addLng.value);
   const notes = elements.addNotes.value.trim();
@@ -674,6 +703,8 @@ async function handleAddPropertySubmit(e) {
         title,
         propertyType,
         price,
+        ownerName,
+        ownerPhone,
         latitude,
         longitude,
         imageBase64: state.uploadedPhotoBase64 || undefined,

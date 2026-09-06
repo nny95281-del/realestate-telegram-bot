@@ -14,6 +14,8 @@ function initDb() {
       title TEXT,
       property_type TEXT DEFAULT 'house',
       price TEXT DEFAULT '',
+      owner_name TEXT DEFAULT '',
+      owner_phone TEXT DEFAULT '',
       notes TEXT,
       image_url TEXT,
       latitude REAL NOT NULL,
@@ -21,17 +23,26 @@ function initDb() {
       created_at TEXT NOT NULL
     );
   `);
+
+  // Safe alter table for existing databases
+  try {
+    db.exec(`ALTER TABLE properties ADD COLUMN owner_name TEXT DEFAULT '';`);
+  } catch (e) {}
+  try {
+    db.exec(`ALTER TABLE properties ADD COLUMN owner_phone TEXT DEFAULT '';`);
+  } catch (e) {}
+
   console.log('✅ Official Database initialized: properties.db');
 }
 
 // Add new property record
-function addProperty({ telegramUserId = null, title = null, propertyType = 'house', price = '', notes = '', imageUrl, latitude, longitude }) {
+function addProperty({ telegramUserId = null, title = null, propertyType = 'house', price = '', ownerName = '', ownerPhone = '', notes = '', imageUrl, latitude, longitude }) {
   const finalTitle = title || `អចលនទ្រព្យ #${Date.now().toString().slice(-4)}`;
   const createdAt = new Date().toISOString();
 
   const stmt = db.prepare(`
-    INSERT INTO properties (telegram_user_id, title, property_type, price, notes, image_url, latitude, longitude, created_at)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+    INSERT INTO properties (telegram_user_id, title, property_type, price, owner_name, owner_phone, notes, image_url, latitude, longitude, created_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `);
 
   const result = stmt.run(
@@ -39,6 +50,8 @@ function addProperty({ telegramUserId = null, title = null, propertyType = 'hous
     finalTitle,
     propertyType || 'house',
     price || '',
+    ownerName || '',
+    ownerPhone || '',
     notes || '',
     imageUrl || '',
     Number(latitude),
@@ -52,6 +65,8 @@ function addProperty({ telegramUserId = null, title = null, propertyType = 'hous
     title: finalTitle,
     propertyType,
     price,
+    ownerName,
+    ownerPhone,
     notes,
     imageUrl,
     latitude: Number(latitude),

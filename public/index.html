@@ -136,6 +136,22 @@
             <h2 id="modal-title" class="modal-title">Property Title</h2>
             <div id="modal-price" class="modal-price"></div>
           </div>
+
+          <!-- Owner Contact Card in Details Modal -->
+          <div id="modal-owner-card" class="modal-owner-card" style="display: none;">
+            <div class="owner-info">
+              <div class="owner-avatar"><i class="fa-solid fa-user-tie"></i></div>
+              <div class="owner-text">
+                <span class="owner-label">ម្ចាស់អចលនទ្រព្យ (Owner)</span>
+                <span id="modal-owner-name" class="owner-name-val"></span>
+              </div>
+            </div>
+            <div class="owner-actions">
+              <a id="btn-call-owner" href="#" class="owner-action-btn call" title="Call"><i class="fa-solid fa-phone"></i></a>
+              <a id="btn-tg-owner" href="#" target="_blank" class="owner-action-btn tg" title="Telegram"><i class="fa-brands fa-telegram"></i></a>
+            </div>
+          </div>
+
           <p id="modal-notes" class="modal-notes"></p>
           
           <div class="coords-box">
@@ -227,6 +243,18 @@
             <div class="form-group">
               <label>តម្លៃ (ជម្រើស)</label>
               <input type="text" id="add-price" placeholder="ឧ. $120,000" />
+            </div>
+          </div>
+
+          <!-- Owner Contact Info Row -->
+          <div class="form-row">
+            <div class="form-group">
+              <label>ឈ្មោះម្ចាស់ផ្ទះ/ដី (ជម្រើស)</label>
+              <input type="text" id="add-owner-name" placeholder="ឧ. លោក សុខ" />
+            </div>
+            <div class="form-group">
+              <label>លេខទូរស័ព្ទម្ចាស់ (Phone) *</label>
+              <input type="tel" id="add-owner-phone" placeholder="ឧ. 012 345 678" />
             </div>
           </div>
 

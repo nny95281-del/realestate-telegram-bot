@@ -65,10 +65,10 @@ app.get('/api/properties/:id', (req, res) => {
   }
 });
 
-// POST /api/properties - Create property from webapp (Supports base64 image upload)
+// POST /api/properties - Create property from webapp (Supports base64 image upload & owner details)
 app.post('/api/properties', (req, res) => {
   try {
-    const { telegramUserId, title, propertyType, price, notes, imageUrl, imageBase64, latitude, longitude } = req.body;
+    const { telegramUserId, title, propertyType, price, ownerName, ownerPhone, notes, imageUrl, imageBase64, latitude, longitude } = req.body;
     if (!latitude || !longitude) {
       return res.status(400).json({ success: false, message: 'Latitude and longitude are required' });
     }
@@ -97,6 +97,8 @@ app.post('/api/properties', (req, res) => {
       title,
       propertyType: propertyType || 'house',
       price: price || '',
+      ownerName: ownerName || '',
+      ownerPhone: ownerPhone || '',
       notes,
       imageUrl: finalImageUrl,
       latitude,
