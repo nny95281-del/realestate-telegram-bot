@@ -938,20 +938,167 @@ body, html {
   gap: 10px;
 }
 
-.btn-gps-autofill {
-  background: rgba(59, 130, 246, 0.15);
-  border: 1px dashed rgba(59, 130, 246, 0.5);
+/* Pin Picker Top Floating Bar */
+.pin-picker-bar {
+  position: absolute;
+  top: 14px;
+  left: 14px;
+  right: 14px;
+  z-index: 1500;
+  background: rgba(15, 23, 42, 0.95);
+  backdrop-filter: blur(12px);
+  border: 1.5px solid #3b82f6;
+  border-radius: var(--radius-md);
+  padding: 10px 14px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  box-shadow: var(--shadow-lg);
+  animation: modalScaleUp 0.25s ease-out;
+}
+
+.pin-picker-info {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.8rem;
+  color: #fff;
+  font-weight: 600;
+}
+
+.pin-picker-info i {
   color: #60a5fa;
-  padding: 8px;
+  font-size: 1rem;
+}
+
+.pin-picker-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.btn-picker-confirm {
+  background: linear-gradient(135deg, #10b981, #059669);
+  color: #fff;
+  border: none;
+  padding: 6px 12px;
+  border-radius: var(--radius-sm);
+  font-size: 0.76rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.btn-picker-cancel {
+  background: rgba(255, 255, 255, 0.1);
+  color: #cbd5e1;
+  border: 1px solid var(--border-color);
+  padding: 6px 10px;
+  border-radius: var(--radius-sm);
+  font-size: 0.76rem;
+  cursor: pointer;
+}
+
+/* Photo Upload Box */
+.photo-upload-container {
+  width: 100%;
+  border: 2px dashed rgba(59, 130, 246, 0.4);
+  border-radius: var(--radius-md);
+  background: rgba(15, 23, 42, 0.6);
+  cursor: pointer;
+  overflow: hidden;
+  transition: all 0.2s ease;
+}
+
+.photo-upload-container:hover {
+  border-color: #3b82f6;
+  background: rgba(37, 99, 235, 0.08);
+}
+
+.photo-upload-placeholder {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 24px 12px;
+  color: var(--text-muted);
+  text-align: center;
+}
+
+.photo-upload-placeholder i {
+  font-size: 1.8rem;
+  color: #60a5fa;
+}
+
+.photo-upload-placeholder span {
+  font-size: 0.8rem;
+  font-weight: 500;
+}
+
+.photo-preview-wrapper {
+  position: relative;
+  width: 100%;
+  height: 160px;
+  background: #000;
+}
+
+.photo-preview-wrapper img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.btn-remove-photo {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  background: rgba(0, 0, 0, 0.7);
+  border: none;
+  color: #fff;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  font-size: 1.2rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Location Picker Buttons */
+.location-picker-buttons {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.btn-loc-opt {
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid var(--border-color);
+  color: #e2e8f0;
+  padding: 8px 10px;
   border-radius: var(--radius-sm);
   font-size: 0.78rem;
   font-family: var(--font-family);
+  font-weight: 600;
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
   gap: 6px;
+  transition: all 0.2s ease;
 }
+
+.btn-loc-opt:hover, .btn-loc-opt:active {
+  background: rgba(37, 99, 235, 0.2);
+  border-color: #3b82f6;
+  color: #fff;
+}
+
+.btn-loc-opt.gps {
+  color: #38bdf8;
+}
+
 
 .btn-submit-add {
   background: linear-gradient(135deg, #10b981, #059669);

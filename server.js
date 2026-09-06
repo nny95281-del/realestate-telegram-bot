@@ -65,23 +65,47 @@ app.get('/api/properties/:id', (req, res) => {
   }
 });
 
-// POST /api/properties - Create property from webapp
+// POST /api/properties - Create property from webapp (Supports base64 image upload)
 app.post('/api/properties', (req, res) => {
   try {
-    const { telegramUserId, title, notes, imageUrl, latitude, longitude } = req.body;
+    const { telegramUserId, title, propertyType, price, notes, imageUrl, imageBase64, latitude, longitude } = req.body;
     if (!latitude || !longitude) {
       return res.status(400).json({ success: false, message: 'Latitude and longitude are required' });
     }
+
+    let finalImageUrl = imageUrl || '';
+
+    // If client uploaded a photo via file input as Base64
+    if (imageBase64 && imageBase64.startsWith('data:image')) {
+      const matches = imageBase64.match(/^data:image\/([A-Za-z-+\/]+);base64,(.+)$/);
+      if (matches && matches.length === 3) {
+        const ext = matches[1] === 'png' ? 'png' : 'jpg';
+        const buffer = Buffer.from(matches[2], 'base64');
+        const filename = `upload_${Date.now()}_${Math.floor(Math.random() * 1000)}.${ext}`;
+        const filePath = path.join(UPLOADS_DIR, filename);
+        fs.writeFileSync(filePath, buffer);
+        finalImageUrl = `/uploads/${filename}`;
+      }
+    }
+
+    if (!finalImageUrl) {
+      finalImageUrl = 'https://images.unsplash.com/photo-1568605114967-8130f3a36994?auto=format&fit=crop&w=800&q=80';
+    }
+
     const created = db.addProperty({
       telegramUserId,
       title,
+      propertyType: propertyType || 'house',
+      price: price || '',
       notes,
-      imageUrl: imageUrl || 'https://images.unsplash.com/photo-1568605114967-8130f3a36994?auto=format&fit=crop&w=800&q=80',
+      imageUrl: finalImageUrl,
       latitude,
       longitude
     });
+
     res.status(201).json({ success: true, data: created });
   } catch (error) {
+    console.error('Error adding property:', error);
     res.status(500).json({ success: false, error: error.message });
   }
 });

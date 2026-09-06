@@ -23,7 +23,13 @@ const state = {
   currentLayerType: 'street', // 'street' or 'satellite'
   streetTileLayer: null,
   satelliteTileLayer: null,
-  selectedProperty: null
+  selectedProperty: null,
+  // Map Pin Dropper state
+  isPickingLocation: false,
+  pickerMarker: null,
+  pickedCoords: null,
+  // Photo upload state
+  uploadedPhotoBase64: null
 };
 
 // Tile Layer URLs
@@ -67,9 +73,20 @@ const elements = {
   addPrice: document.getElementById('add-price'),
   addLat: document.getElementById('add-lat'),
   addLng: document.getElementById('add-lng'),
-  addImageUrl: document.getElementById('add-image-url'),
   addNotes: document.getElementById('add-notes'),
+  btnPickOnMap: document.getElementById('btn-pick-on-map'),
   btnUseMyGps: document.getElementById('btn-use-my-gps'),
+  // Photo Upload Elements
+  photoUploadContainer: document.getElementById('photo-upload-container'),
+  addPhotoFile: document.getElementById('add-photo-file'),
+  photoUploadPlaceholder: document.getElementById('photo-upload-placeholder'),
+  photoPreviewWrapper: document.getElementById('photo-preview-wrapper'),
+  photoPreviewImg: document.getElementById('photo-preview-img'),
+  btnRemovePhoto: document.getElementById('btn-remove-photo'),
+  // Pin Picker Bar Elements
+  pinPickerBar: document.getElementById('pin-picker-bar'),
+  btnCancelPinPick: document.getElementById('btn-cancel-pin-pick'),
+  btnConfirmPinPick: document.getElementById('btn-confirm-pin-pick'),
   // Details Modal Elements
   detailsModal: document.getElementById('details-modal'),
   modalBackdrop: document.getElementById('modal-backdrop'),
@@ -115,7 +132,7 @@ function triggerHaptic(type = 'impact', style = 'light') {
 // Distance Calculation (Haversine Formula)
 // ----------------------------------------------------
 function calculateDistance(lat1, lon1, lat2, lon2) {
-  const R = 6371; // Radius of earth in KM
+  const R = 6371; // Radius in KM
   const dLat = (lat2 - lat1) * Math.PI / 180;
   const dLon = (lon2 - lon1) * Math.PI / 180;
   const a =
@@ -153,12 +170,10 @@ function initMap() {
   state.streetTileLayer.addTo(state.map);
   state.markersLayer = L.layerGroup().addTo(state.map);
 
-  // Allow clicking on map to set coords in Add Modal
+  // Map Click Listener for Pin Dropper
   state.map.on('click', (e) => {
-    if (elements.addModal.classList.contains('active')) {
-      elements.addLat.value = e.latlng.lat.toFixed(6);
-      elements.addLng.value = e.latlng.lng.toFixed(6);
-      showToast('📍 បានជ្រើសរើសកូអរដោនេពីផែនទី');
+    if (state.isPickingLocation) {
+      updatePickerPosition(e.latlng.lat, e.latlng.lng);
     }
   });
 }
@@ -179,6 +194,149 @@ function toggleMapLayer() {
     elements.statActiveLayer.textContent = 'Street';
     showToast('🗺️ បានប្តូរទៅទម្រង់ផែនទីផ្លូវ (Street View)');
   }
+}
+
+// ----------------------------------------------------
+// Pin Dropper (Pick Location on Map)
+// ----------------------------------------------------
+function startPickingLocation() {
+  triggerHaptic('impact', 'medium');
+  closeAddModal();
+  state.isPickingLocation = true;
+  elements.pinPickerBar.style.display = 'flex';
+
+  const center = state.map.getCenter();
+  const initLat = parseFloat(elements.addLat.value) || center.lat;
+  const initLng = parseFloat(elements.addLng.value) || center.lng;
+
+  // Create or move picker marker
+  const pickerIcon = L.divIcon({
+    className: 'picker-pin-icon',
+    html: `
+      <div style="transform: translate(-50%, -100%); text-align: center; cursor: grab;">
+        <div style="font-size: 2.2rem; filter: drop-shadow(0 4px 10px rgba(0,0,0,0.6));">📍</div>
+        <div style="background: #2563eb; color: #fff; font-size: 0.72rem; padding: 2px 6px; border-radius: 10px; font-weight: bold; white-space: nowrap; margin-top: -6px; box-shadow: 0 2px 8px rgba(0,0,0,0.4);">
+          អូស ឬចុចទីតាំងនេះ
+        </div>
+      </div>
+    `,
+    iconSize: [0, 0]
+  });
+
+  if (state.pickerMarker) {
+    state.map.removeLayer(state.pickerMarker);
+  }
+
+  state.pickerMarker = L.marker([initLat, initLng], {
+    icon: pickerIcon,
+    draggable: true
+  }).addTo(state.map);
+
+  state.pickedCoords = { lat: initLat, lng: initLng };
+
+  state.pickerMarker.on('dragend', (e) => {
+    const latlng = e.target.getLatLng();
+    state.pickedCoords = { lat: latlng.lat, lng: latlng.lng };
+    triggerHaptic('impact', 'light');
+  });
+
+  state.map.flyTo([initLat, initLng], 16);
+  showToast('📍 សូមចុចលើផែនទី ឬអូស Pin ទៅកាន់ទីតាំងអចលនទ្រព្យ');
+}
+
+function updatePickerPosition(lat, lng) {
+  state.pickedCoords = { lat, lng };
+  if (state.pickerMarker) {
+    state.pickerMarker.setLatLng([lat, lng]);
+  }
+  triggerHaptic('impact', 'light');
+}
+
+function confirmLocationPick() {
+  triggerHaptic('notification', 'success');
+  if (state.pickedCoords) {
+    elements.addLat.value = state.pickedCoords.lat.toFixed(6);
+    elements.addLng.value = state.pickedCoords.lng.toFixed(6);
+  }
+  stopPickingLocation();
+  openAddModal();
+  showToast('✅ បានកំណត់កូអរដោនេទីតាំងរួចរាល់!');
+}
+
+function cancelLocationPick() {
+  stopPickingLocation();
+  openAddModal();
+}
+
+function stopPickingLocation() {
+  state.isPickingLocation = false;
+  elements.pinPickerBar.style.display = 'none';
+  if (state.pickerMarker) {
+    state.map.removeLayer(state.pickerMarker);
+    state.pickerMarker = null;
+  }
+}
+
+// ----------------------------------------------------
+// Photo File Upload & Compression
+// ----------------------------------------------------
+function handlePhotoFileSelect(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+
+  if (!file.type.startsWith('image/')) {
+    showToast('⚠️ សូមជ្រើសរើស File រូបភាព');
+    return;
+  }
+
+  showToast('⏳ កំពុងដំណើរការរូបភាព...');
+  const reader = new FileReader();
+  reader.onload = (event) => {
+    const img = new Image();
+    img.onload = () => {
+      // Compress image via Canvas to max 1200px
+      const canvas = document.createElement('canvas');
+      let width = img.width;
+      let height = img.height;
+      const maxDim = 1200;
+
+      if (width > maxDim || height > maxDim) {
+        if (width > height) {
+          height = Math.round((height * maxDim) / width);
+          width = maxDim;
+        } else {
+          width = Math.round((width * maxDim) / height);
+          height = maxDim;
+        }
+      }
+
+      canvas.width = width;
+      canvas.height = height;
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(img, 0, 0, width, height);
+
+      const base64 = canvas.toDataURL('image/jpeg', 0.85);
+      state.uploadedPhotoBase64 = base64;
+
+      // Show preview
+      elements.photoPreviewImg.src = base64;
+      elements.photoUploadPlaceholder.style.display = 'none';
+      elements.photoPreviewWrapper.style.display = 'block';
+      triggerHaptic('notification', 'success');
+      showToast('📸 បានបញ្ចូលរូបភាពជោគជ័យ!');
+    };
+    img.src = event.target.result;
+  };
+  reader.readAsDataURL(file);
+}
+
+function removeSelectedPhoto(e) {
+  if (e) e.stopPropagation();
+  state.uploadedPhotoBase64 = null;
+  elements.addPhotoFile.value = '';
+  elements.photoPreviewImg.src = '';
+  elements.photoPreviewWrapper.style.display = 'none';
+  elements.photoUploadPlaceholder.style.display = 'flex';
 }
 
 // ----------------------------------------------------
@@ -270,7 +428,6 @@ function renderData() {
     const thumbUrl = prop.image_url || 'https://images.unsplash.com/photo-1568605114967-8130f3a36994?auto=format&fit=crop&w=150&q=80';
     const dateFormatted = new Date(prop.created_at).toLocaleDateString('km-KH');
     
-    // Distance badge if user location is known
     let distBadge = '';
     if (state.userLocation) {
       const dist = calculateDistance(state.userLocation.lat, state.userLocation.lng, prop.latitude, prop.longitude);
@@ -353,9 +510,6 @@ async function fetchProperties() {
   }
 }
 
-// ----------------------------------------------------
-// Category & Search Filtering
-// ----------------------------------------------------
 function applyFilters() {
   const query = elements.searchInput.value.toLowerCase().trim();
   const category = state.selectedCategory;
@@ -387,11 +541,9 @@ function openDetailsModal(propertyId) {
   elements.modalDateTag.textContent = new Date(property.created_at).toLocaleString('km-KH');
   elements.modalCoords.textContent = `${property.latitude.toFixed(6)}, ${property.longitude.toFixed(6)}`;
 
-  // Type badge
   const typeInfo = PROPERTY_TYPES[property.property_type] || PROPERTY_TYPES.house;
   elements.modalTypeBadge.textContent = typeInfo.label;
 
-  // Price
   if (property.price) {
     elements.modalPrice.textContent = property.price;
     elements.modalPrice.style.display = 'block';
@@ -399,7 +551,6 @@ function openDetailsModal(propertyId) {
     elements.modalPrice.style.display = 'none';
   }
 
-  // Navigation Links
   const lat = property.latitude;
   const lng = property.longitude;
   elements.btnGoogleMaps.href = `https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}`;
@@ -414,7 +565,7 @@ function closeDetailsModal() {
   state.selectedProperty = null;
 }
 
-// Copy Coordinates to Clipboard
+// Copy Coordinates
 function copyCoordsToClipboard() {
   if (!state.selectedProperty) return;
   const coords = `${state.selectedProperty.latitude.toFixed(6)}, ${state.selectedProperty.longitude.toFixed(6)}`;
@@ -424,22 +575,33 @@ function copyCoordsToClipboard() {
   });
 }
 
-// Share Property Link / Details
+// Share Property Link directly to Telegram
 function sharePropertyDetails() {
   if (!state.selectedProperty) return;
   const p = state.selectedProperty;
-  const shareText = `🏡 ${p.title}\n💰 តម្លៃ: ${p.price || 'ចរចា'}\n📍 ទីតាំង GPS: ${p.latitude.toFixed(6)}, ${p.longitude.toFixed(6)}\n🗺️ Google Maps: https://www.google.com/maps/search/?api=1&query=${p.latitude},${p.longitude}`;
+  const typeInfo = PROPERTY_TYPES[p.property_type] || PROPERTY_TYPES.house;
+  const priceText = p.price ? `💰 តម្លៃ: ${p.price}\n` : '';
+  const notesText = p.notes ? `📝 ${p.notes}\n` : '';
+  const coordsText = `📍 ទីតាំង GPS: ${p.latitude.toFixed(6)}, ${p.longitude.toFixed(6)}`;
+  const gmapsUrl = `https://www.google.com/maps/search/?api=1&query=${p.latitude},${p.longitude}`;
+  
+  const shareText = `${typeInfo.label} - ${p.title}\n${priceText}${notesText}${coordsText}\n🗺️ ផែនទី: ${gmapsUrl}`;
 
-  if (navigator.share) {
+  triggerHaptic('impact', 'medium');
+
+  // Telegram Direct Share Link
+  const telegramShareUrl = `https://t.me/share/url?url=${encodeURIComponent(gmapsUrl)}&text=${encodeURIComponent(shareText)}`;
+
+  if (tg && tg.openTelegramLink) {
+    tg.openTelegramLink(telegramShareUrl);
+  } else if (navigator.share) {
     navigator.share({
       title: p.title,
-      text: shareText
+      text: shareText,
+      url: gmapsUrl
     }).catch(() => {});
   } else {
-    navigator.clipboard.writeText(shareText).then(() => {
-      triggerHaptic('notification', 'success');
-      showToast('📋 បានចម្លងព័ត៌មានអចលនទ្រព្យទៅ Clipboard!');
-    });
+    window.open(telegramShareUrl, '_blank');
   }
 }
 
@@ -475,8 +637,7 @@ async function deleteSelectedProperty() {
 // ----------------------------------------------------
 function openAddModal() {
   triggerHaptic('impact', 'light');
-  elements.addPropertyForm.reset();
-  if (state.userLocation) {
+  if (!elements.addLat.value && state.userLocation) {
     elements.addLat.value = state.userLocation.lat.toFixed(6);
     elements.addLng.value = state.userLocation.lng.toFixed(6);
   }
@@ -496,13 +657,14 @@ async function handleAddPropertySubmit(e) {
   const price = elements.addPrice.value.trim();
   const latitude = parseFloat(elements.addLat.value);
   const longitude = parseFloat(elements.addLng.value);
-  const imageUrl = elements.addImageUrl.value.trim();
   const notes = elements.addNotes.value.trim();
 
   if (!title || isNaN(latitude) || isNaN(longitude)) {
     showToast('⚠️ សូមបំពេញឈ្មោះ និងកូអរដោនេឱ្យបានត្រឹមត្រូវ');
     return;
   }
+
+  showToast('⏳ កំពុងរក្សាទុក...');
 
   try {
     const res = await fetch('/api/properties', {
@@ -514,7 +676,7 @@ async function handleAddPropertySubmit(e) {
         price,
         latitude,
         longitude,
-        imageUrl: imageUrl || undefined,
+        imageBase64: state.uploadedPhotoBase64 || undefined,
         notes
       })
     });
@@ -523,9 +685,10 @@ async function handleAddPropertySubmit(e) {
     if (result.success) {
       triggerHaptic('notification', 'success');
       showToast('🎉 បានរក្សាទុកអចលនទ្រព្យថ្មីជោគជ័យ!');
+      elements.addPropertyForm.reset();
+      removeSelectedPhoto();
       closeAddModal();
       await fetchProperties();
-      // Zoom to new property
       state.map.flyTo([latitude, longitude], 17);
     } else {
       showToast('⚠️ មិនអាចរក្សាទុកបានទេ');
@@ -577,7 +740,7 @@ function locateUser() {
         .openPopup();
 
       showToast('📍 បានកំណត់ទីតាំងរបស់អ្នកហើយ');
-      renderData(); // Re-render to show walking distances
+      renderData();
     },
     (err) => {
       console.warn('Geolocation error:', err);
@@ -626,6 +789,18 @@ function setupEventListeners() {
       applyFilters();
     });
   });
+
+  // Photo Upload
+  elements.photoUploadContainer.addEventListener('click', () => {
+    elements.addPhotoFile.click();
+  });
+  elements.addPhotoFile.addEventListener('change', handlePhotoFileSelect);
+  elements.btnRemovePhoto.addEventListener('click', removeSelectedPhoto);
+
+  // Pin Picker on Map
+  elements.btnPickOnMap.addEventListener('click', startPickingLocation);
+  elements.btnConfirmPinPick.addEventListener('click', confirmLocationPick);
+  elements.btnCancelPinPick.addEventListener('click', cancelLocationPick);
 
   // Add Property Modal
   elements.btnAddProperty.addEventListener('click', openAddModal);
