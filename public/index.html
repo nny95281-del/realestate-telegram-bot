@@ -33,26 +33,38 @@
           <div class="brand-icon"><i class="fa-solid fa-map-location-dot"></i></div>
           <div class="brand-text">
             <h1>ផែនទីអចលនទ្រព្យ</h1>
-            <span class="brand-subtitle">Real Estate Geotags</span>
+            <span class="brand-subtitle">Real Estate Geotag Pro</span>
           </div>
         </div>
         <div class="header-actions">
           <span id="property-count-badge" class="badge">0 ទីតាំង</span>
+          <button id="btn-add-property" class="icon-btn add-btn" title="បន្ថែមអចលនទ្រព្យថ្មី (Add Property)">
+            <i class="fa-solid fa-plus"></i>
+          </button>
           <button id="btn-toggle-list" class="icon-btn" title="បើក/បិទ បញ្ជី (Toggle List)">
             <i class="fa-solid fa-list-ul"></i>
           </button>
         </div>
       </div>
 
-      <!-- Search & Filter Bar -->
+      <!-- Search Bar -->
       <div class="search-container">
         <div class="search-input-wrapper">
           <i class="fa-solid fa-magnifying-glass search-icon"></i>
-          <input type="text" id="search-input" placeholder="ស្វែងរកតាមឈ្មោះ ឬកត់ចំណាំ..." />
+          <input type="text" id="search-input" placeholder="ស្វែងរកតាមឈ្មោះ តម្លៃ ឬទីតាំង..." />
           <button id="clear-search" class="clear-btn" style="display: none;">
             <i class="fa-solid fa-xmark"></i>
           </button>
         </div>
+      </div>
+
+      <!-- Category Filter Pills -->
+      <div class="category-filter-scroll">
+        <button class="filter-pill active" data-type="all">ទាំងអស់ (All)</button>
+        <button class="filter-pill" data-type="villa">🏠 ផ្ទះ/វីឡា</button>
+        <button class="filter-pill" data-type="condo">🏢 ខុនដូ</button>
+        <button class="filter-pill" data-type="land">🌾 ដីឡូត៍</button>
+        <button class="filter-pill" data-type="shophouse">🏪 ផ្ទះអាជីវកម្ម</button>
       </div>
     </header>
 
@@ -106,10 +118,6 @@
       </div>
       <div id="properties-list" class="properties-list">
         <!-- Dynamic property items inserted here via JS -->
-        <div class="loading-state">
-          <i class="fa-solid fa-spinner fa-spin"></i>
-          <p>កំពុងទាញយកទិន្នន័យអចលនទ្រព្យ...</p>
-        </div>
       </div>
     </div>
 
@@ -120,15 +128,20 @@
         <button class="modal-close" id="modal-close-btn">&times;</button>
         <div class="modal-image-container">
           <img id="modal-image" src="" alt="Property" />
+          <div class="modal-type-badge" id="modal-type-badge">🏠 ផ្ទះ/វីឡា</div>
           <div class="modal-date-tag" id="modal-date-tag"></div>
         </div>
         <div class="modal-body">
-          <h2 id="modal-title" class="modal-title">Property Title</h2>
+          <div class="modal-title-row">
+            <h2 id="modal-title" class="modal-title">Property Title</h2>
+            <div id="modal-price" class="modal-price"></div>
+          </div>
           <p id="modal-notes" class="modal-notes"></p>
           
           <div class="coords-box">
             <i class="fa-solid fa-location-dot"></i>
             <span id="modal-coords">11.5564, 104.9282</span>
+            <button id="btn-copy-coords" class="copy-coords-btn" title="ចម្លងកូអរដោនេ"><i class="fa-regular fa-copy"></i></button>
           </div>
 
           <!-- Direct Navigation Links -->
@@ -144,12 +157,79 @@
             </a>
           </div>
 
-          <div class="modal-footer">
+          <!-- Share & Delete Actions -->
+          <div class="modal-actions-footer">
+            <button id="btn-share-property" class="btn-share">
+              <i class="fa-solid fa-share-nodes"></i> ចែករំលែក (Share)
+            </button>
             <button id="btn-delete-property" class="btn-danger">
-              <i class="fa-solid fa-trash-can"></i> លុបទិន្នន័យ (Delete)
+              <i class="fa-solid fa-trash-can"></i> លុប (Delete)
             </button>
           </div>
         </div>
+      </div>
+    </div>
+
+    <!-- Manual Add Property Modal -->
+    <div id="add-modal" class="modal">
+      <div class="modal-backdrop" id="add-modal-backdrop"></div>
+      <div class="modal-content add-modal-content">
+        <button class="modal-close" id="add-modal-close-btn">&times;</button>
+        <div class="add-modal-header">
+          <h3><i class="fa-solid fa-location-crosshairs"></i> បន្ថែមអចលនទ្រព្យថ្មី</h3>
+          <p>កត់ត្រាទីតាំងដោយផ្ទាល់ពីក្នុង Mini App</p>
+        </div>
+        <form id="add-property-form" class="add-form">
+          <div class="form-group">
+            <label>ឈ្មោះ ឬចំណងជើងអចលនទ្រព្យ *</label>
+            <input type="text" id="add-title" placeholder="ឧ. ផ្ទះវីឡា ផ្លូវ 2004..." required />
+          </div>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label>ប្រភេទអចលនទ្រព្យ</label>
+              <select id="add-type">
+                <option value="villa">🏠 ផ្ទះ/វីឡា</option>
+                <option value="condo">🏢 ខុនដូ</option>
+                <option value="land">🌾 ដីឡូត៍</option>
+                <option value="shophouse">🏪 ផ្ទះអាជីវកម្ម</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>តម្លៃ (ជម្រើស)</label>
+              <input type="text" id="add-price" placeholder="ឧ. $120,000" />
+            </div>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label>Latitude *</label>
+              <input type="number" step="any" id="add-lat" placeholder="11.5564" required />
+            </div>
+            <div class="form-group">
+              <label>Longitude *</label>
+              <input type="number" step="any" id="add-lng" placeholder="104.9282" required />
+            </div>
+          </div>
+
+          <button type="button" id="btn-use-my-gps" class="btn-gps-autofill">
+            <i class="fa-solid fa-location-arrow"></i> ប្រើទីតាំង GPS បច្ចុប្បន្នរបស់ខ្ញុំ
+          </button>
+
+          <div class="form-group">
+            <label>រូបភាព URL (ជម្រើស)</label>
+            <input type="url" id="add-image-url" placeholder="https://..." />
+          </div>
+
+          <div class="form-group">
+            <label>កត់ចំណាំបន្ថែម</label>
+            <textarea id="add-notes" rows="2" placeholder="ទំហំដី បន្ទប់គេង ព័ត៌មានលម្អិត..."></textarea>
+          </div>
+
+          <button type="submit" class="btn-submit-add">
+            <i class="fa-solid fa-floppy-disk"></i> រក្សាទុកអចលនទ្រព្យ
+          </button>
+        </form>
       </div>
     </div>
 

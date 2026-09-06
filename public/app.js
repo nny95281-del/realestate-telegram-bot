@@ -1,6 +1,6 @@
 /**
  * Real Estate Geotagging Mini App Frontend Logic
- * Leaflet.js Map + Telegram WebApp SDK Integration
+ * Leaflet.js Map + Telegram WebApp SDK Integration + Pro Features
  */
 
 // Initialize Telegram WebApp if present
@@ -16,6 +16,8 @@ if (tg) {
 const state = {
   properties: [],
   filteredProperties: [],
+  selectedCategory: 'all',
+  userLocation: null,
   map: null,
   markersLayer: null,
   currentLayerType: 'street', // 'street' or 'satellite'
@@ -27,6 +29,15 @@ const state = {
 // Tile Layer URLs
 const STREET_TILES = 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png';
 const SATELLITE_TILES = 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}';
+
+// Type Labels & Icons Mapping
+const PROPERTY_TYPES = {
+  villa: { label: '🏠 ផ្ទះ/វីឡា', short: 'Villa' },
+  condo: { label: '🏢 ខុនដូ', short: 'Condo' },
+  land: { label: '🌾 ដីឡូត៍', short: 'Land' },
+  shophouse: { label: '🏪 ផ្ទះអាជីវកម្ម', short: 'Shop' },
+  house: { label: '🏠 ផ្ទះ', short: 'House' }
+};
 
 // DOM Elements
 const elements = {
@@ -44,24 +55,43 @@ const elements = {
   btnLocateMe: document.getElementById('btn-locate-me'),
   btnLayerSwitch: document.getElementById('btn-layer-switch'),
   btnRefresh: document.getElementById('btn-refresh'),
-  // Modal Elements
+  filterPills: document.querySelectorAll('.filter-pill'),
+  // Add Property Elements
+  btnAddProperty: document.getElementById('btn-add-property'),
+  addModal: document.getElementById('add-modal'),
+  addModalBackdrop: document.getElementById('add-modal-backdrop'),
+  addModalCloseBtn: document.getElementById('add-modal-close-btn'),
+  addPropertyForm: document.getElementById('add-property-form'),
+  addTitle: document.getElementById('add-title'),
+  addType: document.getElementById('add-type'),
+  addPrice: document.getElementById('add-price'),
+  addLat: document.getElementById('add-lat'),
+  addLng: document.getElementById('add-lng'),
+  addImageUrl: document.getElementById('add-image-url'),
+  addNotes: document.getElementById('add-notes'),
+  btnUseMyGps: document.getElementById('btn-use-my-gps'),
+  // Details Modal Elements
   detailsModal: document.getElementById('details-modal'),
   modalBackdrop: document.getElementById('modal-backdrop'),
   modalCloseBtn: document.getElementById('modal-close-btn'),
   modalImage: document.getElementById('modal-image'),
+  modalTypeBadge: document.getElementById('modal-type-badge'),
   modalDateTag: document.getElementById('modal-date-tag'),
   modalTitle: document.getElementById('modal-title'),
+  modalPrice: document.getElementById('modal-price'),
   modalNotes: document.getElementById('modal-notes'),
   modalCoords: document.getElementById('modal-coords'),
+  btnCopyCoords: document.getElementById('btn-copy-coords'),
   btnGoogleMaps: document.getElementById('btn-google-maps'),
   btnWaze: document.getElementById('btn-waze'),
   btnAppleMaps: document.getElementById('btn-apple-maps'),
+  btnShareProperty: document.getElementById('btn-share-property'),
   btnDeleteProperty: document.getElementById('btn-delete-property'),
   toast: document.getElementById('toast')
 };
 
 // ----------------------------------------------------
-// Toast Notifications
+// Toast Notifications & Haptics
 // ----------------------------------------------------
 function showToast(message, duration = 2500) {
   elements.toast.textContent = message;
@@ -71,7 +101,6 @@ function showToast(message, duration = 2500) {
   }, duration);
 }
 
-// Trigger Telegram Haptic Feedback
 function triggerHaptic(type = 'impact', style = 'light') {
   if (tg && tg.HapticFeedback) {
     if (type === 'impact') {
@@ -83,33 +112,55 @@ function triggerHaptic(type = 'impact', style = 'light') {
 }
 
 // ----------------------------------------------------
+// Distance Calculation (Haversine Formula)
+// ----------------------------------------------------
+function calculateDistance(lat1, lon1, lat2, lon2) {
+  const R = 6371; // Radius of earth in KM
+  const dLat = (lat2 - lat1) * Math.PI / 180;
+  const dLon = (lon2 - lon1) * Math.PI / 180;
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+    Math.sin(dLon / 2) * Math.sin(dLon / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  const d = R * c;
+  if (d < 1) {
+    return `${Math.round(d * 1000)} m`;
+  }
+  return `${d.toFixed(1)} km`;
+}
+
+// ----------------------------------------------------
 // Map Initialization
 // ----------------------------------------------------
 function initMap() {
-  // Default center: Phnom Penh (11.5564, 104.9282)
   state.map = L.map('map', {
     center: [11.5564, 104.9282],
     zoom: 13,
-    zoomControl: false // Cleaner UI without default zoom controls
+    zoomControl: false
   });
 
-  // Street Layer
   state.streetTileLayer = L.tileLayer(STREET_TILES, {
-    attribution: '&copy; OpenStreetMap contributors',
+    attribution: '&copy; OpenStreetMap',
     maxZoom: 19
   });
 
-  // Satellite Layer
   state.satelliteTileLayer = L.tileLayer(SATELLITE_TILES, {
-    attribution: '&copy; Esri World Imagery',
+    attribution: '&copy; Esri Imagery',
     maxZoom: 19
   });
 
-  // Default to Street
   state.streetTileLayer.addTo(state.map);
-
-  // Layer group for property markers
   state.markersLayer = L.layerGroup().addTo(state.map);
+
+  // Allow clicking on map to set coords in Add Modal
+  state.map.on('click', (e) => {
+    if (elements.addModal.classList.contains('active')) {
+      elements.addLat.value = e.latlng.lat.toFixed(6);
+      elements.addLng.value = e.latlng.lng.toFixed(6);
+      showToast('📍 បានជ្រើសរើសកូអរដោនេពីផែនទី');
+    }
+  });
 }
 
 // Switch Map Layers (Street <-> Satellite)
@@ -120,7 +171,7 @@ function toggleMapLayer() {
     state.satelliteTileLayer.addTo(state.map);
     state.currentLayerType = 'satellite';
     elements.statActiveLayer.textContent = 'Satellite';
-    showToast('🗺️ បានប្តូរទៅទម្រង់រូបភាពផ្កាយរណប (Satellite)');
+    showToast('🗺️ បានប្តូរទៅទម្រង់ផ្កាយរណប (Satellite)');
   } else {
     state.map.removeLayer(state.satelliteTileLayer);
     state.streetTileLayer.addTo(state.map);
@@ -153,12 +204,14 @@ function createCustomPin(property) {
 
   const marker = L.marker([property.latitude, property.longitude], { icon: customIcon });
 
-  // Create popup HTML
   const dateFormatted = new Date(property.created_at).toLocaleDateString('km-KH');
+  const priceBadgeHtml = property.price ? `<div class="popup-price-badge">${escapeHtml(property.price)}</div>` : '';
+
   const popupHtml = `
     <div class="popup-card">
       <div class="popup-img-wrapper">
         <img src="${thumbUrl}" alt="${property.title}" />
+        ${priceBadgeHtml}
       </div>
       <div class="popup-body">
         <div class="popup-title">${escapeHtml(property.title)}</div>
@@ -174,7 +227,6 @@ function createCustomPin(property) {
   return marker;
 }
 
-// Helper: Escape HTML
 function escapeHtml(str) {
   if (!str) return '';
   return String(str)
@@ -198,8 +250,11 @@ function renderData() {
   if (list.length === 0) {
     elements.propertiesList.innerHTML = `
       <div class="empty-state">
-        <i class="fa-solid fa-folder-open"></i>
-        <p>មិនមានអចលនទ្រព្យត្រូវបានរកឃើញទេ</p>
+        <i class="fa-solid fa-house-chimney-crack"></i>
+        <p>មិនទាន់មានអចលនទ្រព្យត្រូវបានកត់ត្រានៅឡើយទេ</p>
+        <p style="font-size: 0.75rem; color: #64748b; margin-top: 4px;">
+          សូមផ្ញើរូបភាព និងទីតាំងក្នុង Bot ឬចុចប៊ូតុង <b>+</b> ខាងលើដើម្បីបន្ថែម
+        </p>
       </div>
     `;
     return;
@@ -208,24 +263,37 @@ function renderData() {
   const bounds = [];
 
   list.forEach((prop) => {
-    // Add Marker
     const marker = createCustomPin(prop);
     state.markersLayer.addLayer(marker);
     bounds.push([prop.latitude, prop.longitude]);
 
-    // Build List Item Card
     const thumbUrl = prop.image_url || 'https://images.unsplash.com/photo-1568605114967-8130f3a36994?auto=format&fit=crop&w=150&q=80';
     const dateFormatted = new Date(prop.created_at).toLocaleDateString('km-KH');
+    
+    // Distance badge if user location is known
+    let distBadge = '';
+    if (state.userLocation) {
+      const dist = calculateDistance(state.userLocation.lat, state.userLocation.lng, prop.latitude, prop.longitude);
+      distBadge = `<span class="prop-dist-badge"><i class="fa-solid fa-person-walking"></i> ${dist}</span>`;
+    }
+
+    const priceHtml = prop.price ? `<span class="prop-price-tag">${escapeHtml(prop.price)}</span>` : '';
 
     const card = document.createElement('div');
     card.className = 'property-card-item';
     card.innerHTML = `
       <img src="${thumbUrl}" class="prop-thumb" alt="Thumbnail" />
       <div class="prop-info">
-        <div class="prop-title">${escapeHtml(prop.title)}</div>
+        <div class="prop-title-row">
+          <div class="prop-title">${escapeHtml(prop.title)}</div>
+          ${priceHtml}
+        </div>
         <div class="prop-notes">${escapeHtml(prop.notes || 'គ្មានកត់ចំណាំ')}</div>
         <div class="prop-meta">
-          <span><i class="fa-solid fa-location-crosshairs"></i> ${prop.latitude.toFixed(4)}, ${prop.longitude.toFixed(4)}</span>
+          <div class="prop-meta-left">
+            <span><i class="fa-solid fa-location-dot"></i> ${prop.latitude.toFixed(4)}, ${prop.longitude.toFixed(4)}</span>
+            ${distBadge}
+          </div>
           <span>${dateFormatted}</span>
         </div>
       </div>
@@ -240,13 +308,11 @@ function renderData() {
     elements.propertiesList.appendChild(card);
   });
 
-  // Fit map bounds if properties exist and search is empty
-  if (bounds.length > 0 && !elements.searchInput.value) {
+  if (bounds.length > 0 && !elements.searchInput.value && state.selectedCategory === 'all') {
     state.map.fitBounds(bounds, { padding: [50, 50], maxZoom: 15 });
   }
 }
 
-// Focus and zoom to specific property on map
 function focusOnProperty(property, marker = null) {
   state.map.flyTo([property.latitude, property.longitude], 17, {
     duration: 1.2,
@@ -277,8 +343,7 @@ async function fetchProperties() {
 
     if (result.success && Array.isArray(result.data)) {
       state.properties = result.data;
-      state.filteredProperties = [...state.properties];
-      renderData();
+      applyFilters();
     } else {
       showToast('⚠️ មិនអាចទាញយកទិន្នន័យបានទេ');
     }
@@ -286,6 +351,24 @@ async function fetchProperties() {
     console.error('Fetch error:', error);
     showToast('⚠️ មានបញ្ហាក្នុងការភ្ជាប់ទៅ Server');
   }
+}
+
+// ----------------------------------------------------
+// Category & Search Filtering
+// ----------------------------------------------------
+function applyFilters() {
+  const query = elements.searchInput.value.toLowerCase().trim();
+  const category = state.selectedCategory;
+
+  state.filteredProperties = state.properties.filter(p => {
+    const matchCategory = (category === 'all') || (p.property_type === category);
+    const matchTitle = p.title && p.title.toLowerCase().includes(query);
+    const matchNotes = p.notes && p.notes.toLowerCase().includes(query);
+    const matchPrice = p.price && p.price.toLowerCase().includes(query);
+    return matchCategory && (matchTitle || matchNotes || matchPrice || !query);
+  });
+
+  renderData();
 }
 
 // ----------------------------------------------------
@@ -304,7 +387,19 @@ function openDetailsModal(propertyId) {
   elements.modalDateTag.textContent = new Date(property.created_at).toLocaleString('km-KH');
   elements.modalCoords.textContent = `${property.latitude.toFixed(6)}, ${property.longitude.toFixed(6)}`;
 
-  // Set navigation URLs
+  // Type badge
+  const typeInfo = PROPERTY_TYPES[property.property_type] || PROPERTY_TYPES.house;
+  elements.modalTypeBadge.textContent = typeInfo.label;
+
+  // Price
+  if (property.price) {
+    elements.modalPrice.textContent = property.price;
+    elements.modalPrice.style.display = 'block';
+  } else {
+    elements.modalPrice.style.display = 'none';
+  }
+
+  // Navigation Links
   const lat = property.latitude;
   const lng = property.longitude;
   elements.btnGoogleMaps.href = `https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}`;
@@ -317,6 +412,35 @@ function openDetailsModal(propertyId) {
 function closeDetailsModal() {
   elements.detailsModal.classList.remove('active');
   state.selectedProperty = null;
+}
+
+// Copy Coordinates to Clipboard
+function copyCoordsToClipboard() {
+  if (!state.selectedProperty) return;
+  const coords = `${state.selectedProperty.latitude.toFixed(6)}, ${state.selectedProperty.longitude.toFixed(6)}`;
+  navigator.clipboard.writeText(coords).then(() => {
+    triggerHaptic('notification', 'success');
+    showToast('📋 បានចម្លងកូអរដោនេ GPS រួចរាល់!');
+  });
+}
+
+// Share Property Link / Details
+function sharePropertyDetails() {
+  if (!state.selectedProperty) return;
+  const p = state.selectedProperty;
+  const shareText = `🏡 ${p.title}\n💰 តម្លៃ: ${p.price || 'ចរចា'}\n📍 ទីតាំង GPS: ${p.latitude.toFixed(6)}, ${p.longitude.toFixed(6)}\n🗺️ Google Maps: https://www.google.com/maps/search/?api=1&query=${p.latitude},${p.longitude}`;
+
+  if (navigator.share) {
+    navigator.share({
+      title: p.title,
+      text: shareText
+    }).catch(() => {});
+  } else {
+    navigator.clipboard.writeText(shareText).then(() => {
+      triggerHaptic('notification', 'success');
+      showToast('📋 បានចម្លងព័ត៌មានអចលនទ្រព្យទៅ Clipboard!');
+    });
+  }
 }
 
 // Delete Property
@@ -347,6 +471,72 @@ async function deleteSelectedProperty() {
 }
 
 // ----------------------------------------------------
+// Manual Add Property Modal Logic
+// ----------------------------------------------------
+function openAddModal() {
+  triggerHaptic('impact', 'light');
+  elements.addPropertyForm.reset();
+  if (state.userLocation) {
+    elements.addLat.value = state.userLocation.lat.toFixed(6);
+    elements.addLng.value = state.userLocation.lng.toFixed(6);
+  }
+  elements.addModal.classList.add('active');
+}
+
+function closeAddModal() {
+  elements.addModal.classList.remove('active');
+}
+
+async function handleAddPropertySubmit(e) {
+  e.preventDefault();
+  triggerHaptic('impact', 'medium');
+
+  const title = elements.addTitle.value.trim();
+  const propertyType = elements.addType.value;
+  const price = elements.addPrice.value.trim();
+  const latitude = parseFloat(elements.addLat.value);
+  const longitude = parseFloat(elements.addLng.value);
+  const imageUrl = elements.addImageUrl.value.trim();
+  const notes = elements.addNotes.value.trim();
+
+  if (!title || isNaN(latitude) || isNaN(longitude)) {
+    showToast('⚠️ សូមបំពេញឈ្មោះ និងកូអរដោនេឱ្យបានត្រឹមត្រូវ');
+    return;
+  }
+
+  try {
+    const res = await fetch('/api/properties', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        title,
+        propertyType,
+        price,
+        latitude,
+        longitude,
+        imageUrl: imageUrl || undefined,
+        notes
+      })
+    });
+
+    const result = await res.json();
+    if (result.success) {
+      triggerHaptic('notification', 'success');
+      showToast('🎉 បានរក្សាទុកអចលនទ្រព្យថ្មីជោគជ័យ!');
+      closeAddModal();
+      await fetchProperties();
+      // Zoom to new property
+      state.map.flyTo([latitude, longitude], 17);
+    } else {
+      showToast('⚠️ មិនអាចរក្សាទុកបានទេ');
+    }
+  } catch (err) {
+    console.error('Add error:', err);
+    showToast('⚠️ បរាជ័យក្នុងការរក្សាទុក');
+  }
+}
+
+// ----------------------------------------------------
 // Drawer Controls
 // ----------------------------------------------------
 function toggleDrawer() {
@@ -372,21 +562,22 @@ function locateUser() {
   navigator.geolocation.getCurrentPosition(
     (pos) => {
       const { latitude, longitude } = pos.coords;
+      state.userLocation = { lat: latitude, lng: longitude };
       state.map.flyTo([latitude, longitude], 16);
 
-      // Add temporary user location marker
       L.circleMarker([latitude, longitude], {
-        radius: 8,
+        radius: 9,
         fillColor: '#3b82f6',
         color: '#ffffff',
         weight: 3,
         opacity: 1,
-        fillOpacity: 0.9
+        fillOpacity: 0.95
       }).addTo(state.map)
         .bindPopup('<b>📍 ទីតាំងបច្ចុប្បន្នរបស់អ្នក</b>')
         .openPopup();
 
       showToast('📍 បានកំណត់ទីតាំងរបស់អ្នកហើយ');
+      renderData(); // Re-render to show walking distances
     },
     (err) => {
       console.warn('Geolocation error:', err);
@@ -394,29 +585,6 @@ function locateUser() {
     },
     { enableHighAccuracy: true, timeout: 10000 }
   );
-}
-
-// ----------------------------------------------------
-// Search & Filter
-// ----------------------------------------------------
-function handleSearch(e) {
-  const query = e.target.value.toLowerCase().trim();
-  elements.clearSearch.style.display = query ? 'block' : 'none';
-
-  state.filteredProperties = state.properties.filter(p => {
-    const matchTitle = p.title && p.title.toLowerCase().includes(query);
-    const matchNotes = p.notes && p.notes.toLowerCase().includes(query);
-    return matchTitle || matchNotes;
-  });
-
-  renderData();
-}
-
-function clearSearchInput() {
-  elements.searchInput.value = '';
-  elements.clearSearch.style.display = 'none';
-  state.filteredProperties = [...state.properties];
-  renderData();
 }
 
 // ----------------------------------------------------
@@ -438,13 +606,48 @@ function setupEventListeners() {
   });
 
   // Search
-  elements.searchInput.addEventListener('input', handleSearch);
-  elements.clearSearch.addEventListener('click', clearSearchInput);
+  elements.searchInput.addEventListener('input', () => {
+    elements.clearSearch.style.display = elements.searchInput.value ? 'block' : 'none';
+    applyFilters();
+  });
+  elements.clearSearch.addEventListener('click', () => {
+    elements.searchInput.value = '';
+    elements.clearSearch.style.display = 'none';
+    applyFilters();
+  });
 
-  // Modal
+  // Category Filter Pills
+  elements.filterPills.forEach(pill => {
+    pill.addEventListener('click', () => {
+      triggerHaptic('impact', 'light');
+      elements.filterPills.forEach(p => p.classList.remove('active'));
+      pill.classList.add('active');
+      state.selectedCategory = pill.getAttribute('data-type');
+      applyFilters();
+    });
+  });
+
+  // Add Property Modal
+  elements.btnAddProperty.addEventListener('click', openAddModal);
+  elements.addModalCloseBtn.addEventListener('click', closeAddModal);
+  elements.addModalBackdrop.addEventListener('click', closeAddModal);
+  elements.addPropertyForm.addEventListener('submit', handleAddPropertySubmit);
+  elements.btnUseMyGps.addEventListener('click', () => {
+    if (state.userLocation) {
+      elements.addLat.value = state.userLocation.lat.toFixed(6);
+      elements.addLng.value = state.userLocation.lng.toFixed(6);
+      showToast('📍 បានបញ្ចូលកូអរដោនេ GPS របស់អ្នក');
+    } else {
+      locateUser();
+    }
+  });
+
+  // Details Modal
   elements.modalCloseBtn.addEventListener('click', closeDetailsModal);
   elements.modalBackdrop.addEventListener('click', closeDetailsModal);
   elements.btnDeleteProperty.addEventListener('click', deleteSelectedProperty);
+  elements.btnCopyCoords.addEventListener('click', copyCoordsToClipboard);
+  elements.btnShareProperty.addEventListener('click', sharePropertyDetails);
 }
 
 // Expose modal function for inline HTML popup button
