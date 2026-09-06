@@ -168,6 +168,312 @@ app.delete('/api/properties/:id', async (req, res) => {
   }
 });
 
+// GET /api/properties/:id/photo.jpg - Serves property photo directly with correct mime-type for OpenGraph & Telegram crawlers
+app.get(['/api/properties/:id/photo.jpg', '/api/properties/:id/photo'], async (req, res) => {
+  try {
+    const property = await db.getPropertyById(req.params.id);
+    if (!property || !property.image_url) {
+      return res.redirect('/logo.jpg');
+    }
+
+    const img = property.image_url;
+
+    // If Base64 data URL
+    if (img.startsWith('data:image')) {
+      const matches = img.match(/^data:image\/([A-Za-z-+\/]+);base64,(.+)$/);
+      if (matches && matches.length === 3) {
+        const mimeType = matches[1] === 'png' ? 'image/png' : 'image/jpeg';
+        const buffer = Buffer.from(matches[2], 'base64');
+        res.setHeader('Content-Type', mimeType);
+        res.setHeader('Cache-Control', 'public, max-age=86400');
+        return res.send(buffer);
+      }
+    }
+
+    // If local file path in uploads
+    if (img.startsWith('/uploads/')) {
+      const filename = path.basename(img);
+      const filePath = path.join(UPLOADS_DIR, filename);
+      if (fs.existsSync(filePath)) {
+        res.setHeader('Cache-Control', 'public, max-age=86400');
+        return res.sendFile(filePath);
+      }
+    }
+
+    // If external full URL
+    if (img.startsWith('http://') || img.startsWith('https://')) {
+      return res.redirect(img);
+    }
+
+    return res.redirect('/logo.jpg');
+  } catch (error) {
+    res.redirect('/logo.jpg');
+  }
+});
+
+// Helper for escaping HTML entities
+function escapeHtml(str) {
+  if (!str) return '';
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+}
+
+// GET /p/:id - Rich Property Share Landing Page with OpenGraph metadata for Telegram preview
+app.get('/p/:id', async (req, res) => {
+  try {
+    const property = await db.getPropertyById(req.params.id);
+    if (!property) {
+      return res.status(404).send(`
+        <!DOCTYPE html>
+        <html lang="km">
+        <head><meta charset="UTF-8"><title>រកមិនឃើញអចលនទ្រព្យ</title></head>
+        <body style="font-family: sans-serif; text-align: center; padding: 50px; background: #0b0f19; color: #fff;">
+          <h2>❌ រកមិនឃើញអចលនទ្រព្យនេះទេ</h2>
+          <a href="/" style="color: #60a5fa; text-decoration: none;">⬅️ ត្រឡប់ទៅកាន់ផែនទីវិញ</a>
+        </body>
+        </html>
+      `);
+    }
+
+    const host = req.get('host');
+    const protocol = req.protocol === 'https' || req.headers['x-forwarded-proto'] === 'https' ? 'https' : 'http';
+    const baseUrl = `${protocol}://${host}`;
+
+    const typeIcons = { house: '🏠 ផ្ទះ/វីឡា', villa: '🏰 វីឡា', condo: '🏢 ខុនដូ', land: '🌾 ដីធ្លី/ដីឡូត៍', shophouse: '🏪 ផ្ទះអាជីវកម្ម' };
+    const statusIcons = { available: '🟢 សម្រាប់លក់ (Available)', booked: '🟡 បានកក់ (Booked)', sold: '🔴 លក់ដាច់ (Sold)' };
+
+    const typeLabel = typeIcons[property.property_type] || '🏠 អចលនទ្រព្យ';
+    const statusLabel = statusIcons[property.status] || '🟢 សម្រាប់លក់';
+    const priceDisplay = property.price ? `${property.price}` : 'តម្លៃចរចា';
+    const photoUrl = `${baseUrl}/api/properties/${property.id}/photo.jpg`;
+    const googleMapsUrl = `https://www.google.com/maps/dir/?api=1&destination=${property.latitude},${property.longitude}`;
+    const cleanPhone = property.owner_phone ? property.owner_phone.replace(/[^0-9+]/g, '') : '';
+    const tgPhone = cleanPhone ? cleanPhone.replace(/^0/, '855') : '';
+
+    const ogTitle = `🏡 ${property.title} | ${priceDisplay}`;
+    const ogDesc = `📌 ស្ថានភាព: ${statusLabel} | 📍 GPS: ${Number(property.latitude).toFixed(5)}, ${Number(property.longitude).toFixed(5)}${property.owner_phone ? ` | 📞 ទំនាក់ទំនង: ${property.owner_phone}` : ''}`;
+
+    const html = `<!DOCTYPE html>
+<html lang="km">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>${escapeHtml(ogTitle)}</title>
+
+  <!-- Open Graph / Telegram Rich Link Preview -->
+  <meta property="og:type" content="website">
+  <meta property="og:title" content="${escapeHtml(ogTitle)}">
+  <meta property="og:description" content="${escapeHtml(ogDesc)}">
+  <meta property="og:image" content="${photoUrl}">
+  <meta property="og:image:secure_url" content="${photoUrl}">
+  <meta property="og:image:type" content="image/jpeg">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  <meta property="og:url" content="${baseUrl}/p/${property.id}">
+  
+  <!-- Twitter Card -->
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="${escapeHtml(ogTitle)}">
+  <meta name="twitter:description" content="${escapeHtml(ogDesc)}">
+  <meta name="twitter:image" content="${photoUrl}">
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Battambang:wght@400;700&family=Kantumruy+Pro:wght@400;600;700&family=Outfit:wght@400;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+  
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'Kantumruy Pro', 'Battambang', -apple-system, sans-serif;
+      background: linear-gradient(135deg, #0b0f19 0%, #111827 100%);
+      color: #f3f4f6;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 16px;
+    }
+    .card {
+      width: 100%;
+      max-width: 480px;
+      background: rgba(26, 34, 52, 0.85);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      border-radius: 20px;
+      overflow: hidden;
+      box-shadow: 0 20px 40px rgba(0, 0, 0, 0.5);
+    }
+    .img-wrap {
+      position: relative;
+      width: 100%;
+      height: 260px;
+      background: #000;
+      overflow: hidden;
+    }
+    .img-wrap img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+    .badges {
+      position: absolute;
+      top: 12px;
+      left: 12px;
+      display: flex;
+      gap: 6px;
+      flex-wrap: wrap;
+    }
+    .badge {
+      background: rgba(15, 23, 42, 0.85);
+      backdrop-filter: blur(8px);
+      padding: 4px 10px;
+      border-radius: 20px;
+      font-size: 0.78rem;
+      font-weight: 600;
+      border: 1px solid rgba(255, 255, 255, 0.15);
+    }
+    .card-body {
+      padding: 18px;
+    }
+    .title-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 10px;
+      margin-bottom: 12px;
+    }
+    .title {
+      font-size: 1.25rem;
+      font-weight: 700;
+      color: #fff;
+      line-height: 1.35;
+    }
+    .price-tag {
+      background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+      color: #fff;
+      padding: 6px 12px;
+      border-radius: 12px;
+      font-size: 1.05rem;
+      font-weight: 700;
+      white-space: nowrap;
+      box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
+    }
+    .info-box {
+      background: rgba(15, 23, 42, 0.6);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 12px;
+      padding: 12px;
+      margin-bottom: 14px;
+      font-size: 0.88rem;
+      line-height: 1.6;
+      color: #d1d5db;
+    }
+    .owner-box {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      background: rgba(30, 41, 59, 0.7);
+      border: 1px solid rgba(59, 130, 246, 0.2);
+      border-radius: 12px;
+      padding: 12px;
+      margin-bottom: 14px;
+    }
+    .btn-group {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 10px;
+    }
+    .btn {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      padding: 12px 16px;
+      border-radius: 12px;
+      font-size: 0.95rem;
+      font-weight: 600;
+      text-decoration: none;
+      color: #fff;
+      transition: transform 0.15s ease, filter 0.15s ease;
+    }
+    .btn:active { transform: scale(0.97); }
+    .btn-gmaps { background: linear-gradient(135deg, #4285F4 0%, #2563eb 100%); }
+    .btn-app { background: linear-gradient(135deg, #8b5cf6 0%, #6d28d9 100%); }
+    .btn-call { background: #10b981; }
+    .btn-tg { background: #0088cc; }
+    .footer-credit {
+      margin-top: 20px;
+      font-size: 0.78rem;
+      color: #9ca3af;
+      text-align: center;
+    }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="img-wrap">
+      <img src="${photoUrl}" alt="${escapeHtml(property.title)}" />
+      <div class="badges">
+        <span class="badge">${typeLabel}</span>
+        <span class="badge">${statusLabel}</span>
+      </div>
+    </div>
+    <div class="card-body">
+      <div class="title-row">
+        <h1 class="title">${escapeHtml(property.title)}</h1>
+        <div class="price-tag">${escapeHtml(priceDisplay)}</div>
+      </div>
+      
+      ${property.notes ? `<div class="info-box">📝 ${escapeHtml(property.notes)}</div>` : ''}
+
+      <div class="info-box">
+        📍 <strong>កូអរដោនេ GPS:</strong> ${Number(property.latitude).toFixed(6)}, ${Number(property.longitude).toFixed(6)}<br>
+        📅 <strong>កាលបរិច្ឆេទ:</strong> ${new Date(property.created_at).toLocaleDateString('km-KH')}
+      </div>
+
+      ${property.owner_phone ? `
+        <div class="owner-box">
+          <div>
+            <div style="font-size: 0.75rem; color: #9ca3af;">ម្ចាស់អចលនទ្រព្យ (Owner)</div>
+            <strong>${escapeHtml(property.owner_name ? property.owner_name + ' - ' : '')}${escapeHtml(property.owner_phone)}</strong>
+          </div>
+          <div style="display: flex; gap: 8px;">
+            <a href="tel:${cleanPhone}" class="btn btn-call" style="padding: 8px 12px; border-radius: 8px;"><i class="fa-solid fa-phone"></i> ហៅ</a>
+            <a href="https://t.me/+${tgPhone}" target="_blank" class="btn btn-tg" style="padding: 8px 12px; border-radius: 8px;"><i class="fa-brands fa-telegram"></i> Telegram</a>
+          </div>
+        </div>
+      ` : ''}
+
+      <div class="btn-group">
+        <a href="${googleMapsUrl}" target="_blank" class="btn btn-gmaps">
+          <i class="fa-solid fa-diamond-turn-right"></i> នាំផ្លូវទៅកាន់ទីតាំង (Google Maps)
+        </a>
+        <a href="/?lat=${property.latitude}&lng=${property.longitude}&propId=${property.id}" class="btn btn-app">
+          <i class="fa-solid fa-map-location-dot"></i> បើកមើលលើផែនទីអចលនទ្រព្យ Mini App
+        </a>
+      </div>
+    </div>
+  </div>
+
+  <div class="footer-credit">
+    👑 Real Estate Geotag Bot | បង្កើតឡើងដោយ <strong>លោក សយ សុវណ្ណមុន្នី</strong>
+  </div>
+</body>
+</html>`;
+
+    res.send(html);
+  } catch (error) {
+    console.error('Error serving share page:', error);
+    res.status(500).send('Error loading property');
+  }
+});
+
 // Health check endpoint
 app.get('/api/health', (req, res) => {
   res.json({

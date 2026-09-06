@@ -785,7 +785,7 @@ function copyCoordsToClipboard() {
   });
 }
 
-// Share Property Link directly to Telegram
+// Share Property Link directly to Telegram with Full Photo Preview
 function sharePropertyDetails() {
   if (!state.selectedProperty) return;
   const p = state.selectedProperty;
@@ -793,16 +793,18 @@ function sharePropertyDetails() {
   const statusInfo = PROPERTY_STATUSES[p.status] || PROPERTY_STATUSES.available;
   const priceText = p.price ? `💰 តម្លៃ: ${p.price}\n` : '';
   const statusText = `📌 ស្ថានភាព: ${statusInfo.label}\n`;
-  const ownerText = p.owner_phone ? `📞 ម្ចាស់ផ្ទះ: ${p.owner_name ? p.owner_name + ' - ' : ''}${p.owner_phone}\n` : '';
+  const ownerText = p.owner_phone ? `📞 ទំនាក់ទំនង: ${p.owner_name ? p.owner_name + ' - ' : ''}${p.owner_phone}\n` : '';
   const notesText = p.notes ? `📝 ${p.notes}\n` : '';
   const coordsText = `📍 ទីតាំង GPS: ${p.latitude.toFixed(6)}, ${p.longitude.toFixed(6)}`;
-  const gmapsUrl = `https://www.google.com/maps/search/?api=1&query=${p.latitude},${p.longitude}`;
   
-  const shareText = `${typeInfo.label} - ${p.title}\n${priceText}${statusText}${ownerText}${notesText}${coordsText}\n🗺️ ផែនទី: ${gmapsUrl}`;
+  // Use dedicated share landing URL that includes OpenGraph rich property photo preview
+  const propertyShareUrl = `${window.location.origin}/p/${p.id}`;
+  
+  const shareText = `${typeInfo.label} - ${p.title}\n${priceText}${statusText}${ownerText}${notesText}${coordsText}`;
 
   triggerHaptic('impact', 'medium');
 
-  const telegramShareUrl = `https://t.me/share/url?url=${encodeURIComponent(gmapsUrl)}&text=${encodeURIComponent(shareText)}`;
+  const telegramShareUrl = `https://t.me/share/url?url=${encodeURIComponent(propertyShareUrl)}&text=${encodeURIComponent(shareText)}`;
 
   if (tg && tg.openTelegramLink) {
     tg.openTelegramLink(telegramShareUrl);
@@ -810,7 +812,7 @@ function sharePropertyDetails() {
     navigator.share({
       title: p.title,
       text: shareText,
-      url: gmapsUrl
+      url: propertyShareUrl
     }).catch(() => {});
   } else {
     window.open(telegramShareUrl, '_blank');
@@ -1164,5 +1166,21 @@ window.app = {
 document.addEventListener('DOMContentLoaded', () => {
   initMap();
   setupEventListeners();
-  fetchProperties();
+  fetchProperties().then(() => {
+    // Deep-linking from Telegram or Share Link
+    const urlParams = new URLSearchParams(window.location.search);
+    const targetPropId = urlParams.get('propId');
+    const targetLat = parseFloat(urlParams.get('lat'));
+    const targetLng = parseFloat(urlParams.get('lng'));
+
+    if (targetLat && targetLng) {
+      state.map.setView([targetLat, targetLng], 17);
+    }
+
+    if (targetPropId) {
+      setTimeout(() => {
+        openDetailsModal(Number(targetPropId));
+      }, 400);
+    }
+  });
 });
