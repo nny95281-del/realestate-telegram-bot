@@ -37,10 +37,10 @@ app.use('/uploads', express.static(UPLOADS_DIR));
 // ----------------------------------------------------
 
 // GET /api/properties - Fetch all properties
-app.get('/api/properties', (req, res) => {
+app.get('/api/properties', async (req, res) => {
   try {
     const userId = req.query.user_id || null;
-    const properties = db.getAllProperties(userId);
+    const properties = await db.getAllProperties(userId);
     res.json({
       success: true,
       count: properties.length,
@@ -53,9 +53,9 @@ app.get('/api/properties', (req, res) => {
 });
 
 // GET /api/properties/:id - Fetch single property
-app.get('/api/properties/:id', (req, res) => {
+app.get('/api/properties/:id', async (req, res) => {
   try {
-    const property = db.getPropertyById(req.params.id);
+    const property = await db.getPropertyById(req.params.id);
     if (!property) {
       return res.status(404).json({ success: false, message: 'Property not found' });
     }
@@ -66,7 +66,7 @@ app.get('/api/properties/:id', (req, res) => {
 });
 
 // POST /api/properties - Create property from webapp (Supports base64 image upload & owner details & status)
-app.post('/api/properties', (req, res) => {
+app.post('/api/properties', async (req, res) => {
   try {
     const { telegramUserId, title, propertyType, price, ownerName, ownerPhone, status, notes, imageUrl, imageBase64, latitude, longitude } = req.body;
     if (!latitude || !longitude) {
@@ -92,7 +92,7 @@ app.post('/api/properties', (req, res) => {
       finalImageUrl = 'https://images.unsplash.com/photo-1568605114967-8130f3a36994?auto=format&fit=crop&w=800&q=80';
     }
 
-    const created = db.addProperty({
+    const created = await db.addProperty({
       telegramUserId,
       title,
       propertyType: propertyType || 'house',
@@ -114,10 +114,10 @@ app.post('/api/properties', (req, res) => {
 });
 
 // PUT /api/properties/:id - Update property details
-app.put('/api/properties/:id', (req, res) => {
+app.put('/api/properties/:id', async (req, res) => {
   try {
     const { title, propertyType, price, ownerName, ownerPhone, status, notes } = req.body;
-    const updated = db.updateProperty(req.params.id, {
+    const updated = await db.updateProperty(req.params.id, {
       title,
       propertyType,
       price,
@@ -139,13 +139,13 @@ app.put('/api/properties/:id', (req, res) => {
 });
 
 // PATCH /api/properties/:id/status - Quick 1-click status update
-app.patch('/api/properties/:id/status', (req, res) => {
+app.patch('/api/properties/:id/status', async (req, res) => {
   try {
     const { status } = req.body;
     if (!status) {
       return res.status(400).json({ success: false, message: 'Status is required' });
     }
-    const updated = db.updatePropertyStatus(req.params.id, status);
+    const updated = await db.updatePropertyStatus(req.params.id, status);
     if (!updated) {
       return res.status(404).json({ success: false, message: 'Property not found' });
     }
@@ -156,9 +156,9 @@ app.patch('/api/properties/:id/status', (req, res) => {
 });
 
 // DELETE /api/properties/:id - Delete property
-app.delete('/api/properties/:id', (req, res) => {
+app.delete('/api/properties/:id', async (req, res) => {
   try {
-    const deleted = db.deleteProperty(req.params.id);
+    const deleted = await db.deleteProperty(req.params.id);
     if (!deleted) {
       return res.status(404).json({ success: false, message: 'Property not found' });
     }
@@ -282,14 +282,14 @@ if (BOT_TOKEN && BOT_TOKEN !== 'YOUR_TELEGRAM_BOT_TOKEN_HERE') {
   // /list command - List recent properties
   bot.command('list', async (ctx) => {
     try {
-      const properties = db.getAllProperties(ctx.from.id);
+      const properties = await db.getAllProperties(ctx.from.id);
       if (properties.length === 0) {
         return ctx.reply('📭 អ្នកមិនទាន់បានកត់ត្រាអចលនទ្រព្យណាមួយនៅឡើយទេ។ សូមផ្ញើរូបភាពដើម្បីចាប់ផ្តើម!');
       }
 
       let text = `📋 **បញ្ជីអចលនទ្រព្យរបស់អ្នក (សរុប: ${properties.length}):**\n\n`;
       properties.slice(0, 5).forEach((p, idx) => {
-        text += `${idx + 1}. **${p.title}**\n📍 GPS: \`${p.latitude.toFixed(5)}, ${p.longitude.toFixed(5)}\`\n📅 ${new Date(p.created_at).toLocaleDateString()}\n\n`;
+        text += `${idx + 1}. **${p.title}**\n📍 GPS: \`${Number(p.latitude).toFixed(5)}, ${Number(p.longitude).toFixed(5)}\`\n📅 ${new Date(p.created_at).toLocaleDateString()}\n\n`;
       });
 
       if (properties.length > 5) {
@@ -326,7 +326,7 @@ if (BOT_TOKEN && BOT_TOKEN !== 'YOUR_TELEGRAM_BOT_TOKEN_HERE') {
       if (existingSession && existingSession.type === 'pending_photo') {
         // Pair with pending location!
         const loc = existingSession.location;
-        const newProperty = db.addProperty({
+        const newProperty = await db.addProperty({
           telegramUserId: userId,
           title: caption || `អចលនទ្រព្យ ${new Date().toLocaleTimeString('km-KH')}`,
           notes: caption || 'កត់ត្រាដោយស្វ័យប្រវត្តិតាម Telegram',
@@ -340,7 +340,7 @@ if (BOT_TOKEN && BOT_TOKEN !== 'YOUR_TELEGRAM_BOT_TOKEN_HERE') {
         await ctx.reply(
           `🎉 **កត់ត្រាជោគជ័យ! (Property Logged Successfully)**\n\n` +
           `🏡 **ឈ្មោះ:** ${newProperty.title}\n` +
-          `📍 **កូអរដោនេ:** ${newProperty.latitude.toFixed(6)}, ${newProperty.longitude.toFixed(6)}\n` +
+          `📍 **កូអរដោនេ:** ${Number(newProperty.latitude).toFixed(6)}, ${Number(newProperty.longitude).toFixed(6)}\n` +
           `🕒 **កាលបរិច្ឆេទ:** ${new Date().toLocaleString()}\n\n` +
           `ចុចខាងក្រោមដើម្បីពិនិត្យមើលលើផែនទី Leaflet:`,
           {
@@ -358,7 +358,7 @@ if (BOT_TOKEN && BOT_TOKEN !== 'YOUR_TELEGRAM_BOT_TOKEN_HERE') {
 
         await ctx.reply(
           '📷 **បានទទួលរូបភាពអចលនទ្រព្យហើយ!**\n\n' +
-          '📍 សូមចុចប៊ូតុង **"ចែករំលែកទីតាំង (Share Location)"** ខាងក្រោម ដើម្បីកំណត់ទីតាំង GPS ភ្ជាប់ជាមួយរូបភាពនេះ៖',
+          '📍 សូមចុចប៊ូតុង **"ចែករំលែកទីតាំង (Share Location)"** ខាងក្រោម ដើម្បីកំណត់ទីតាំង GPS ភ្ជាប់ជាមួយរូបភាពនេះ：',
           {
             parse_mode: 'Markdown',
             ...Markup.keyboard([
@@ -386,7 +386,7 @@ if (BOT_TOKEN && BOT_TOKEN !== 'YOUR_TELEGRAM_BOT_TOKEN_HERE') {
       if (existingSession && existingSession.type === 'pending_location') {
         // Perfect match: photo was received first, now paired with location!
         const photoData = existingSession.photo;
-        const newProperty = db.addProperty({
+        const newProperty = await db.addProperty({
           telegramUserId: userId,
           title: photoData.caption || `អចលនទ្រព្យ #${Date.now().toString().slice(-4)}`,
           notes: photoData.caption || 'កត់ត្រាតាម Telegram Bot Geotagging',
