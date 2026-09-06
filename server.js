@@ -134,15 +134,16 @@ async function downloadTelegramFile(fileUrl, destPath) {
 function getMapKeyboard(buttonText = '🗺️ បើកផែនទីអចលនទ្រព្យ (Open Map)') {
   const currentUrl = process.env.WEBAPP_URL || WEBAPP_URL;
   if (currentUrl && currentUrl.startsWith('https://')) {
-    return Markup.inlineKeyboard([
-      [Markup.button.webApp(buttonText, currentUrl)]
-    ]);
-  } else {
-    // If running locally on http://, fallback to standard URL or prompt to use Menu Button
-    return Markup.inlineKeyboard([
-      [Markup.button.url(buttonText, currentUrl.startsWith('http') ? currentUrl : `https://${currentUrl}`)]
-    ]);
+    return {
+      reply_markup: {
+        inline_keyboard: [
+          [{ text: buttonText, web_app: { url: currentUrl } }]
+        ]
+      }
+    };
   }
+  // If running locally without HTTPS, do not send invalid inline button
+  return {};
 }
 
 // ----------------------------------------------------
