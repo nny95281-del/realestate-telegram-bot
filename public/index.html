@@ -173,16 +173,76 @@
             </a>
           </div>
 
-          <!-- Share & Delete Actions -->
+          <!-- Share, Edit & Delete Actions -->
           <div class="modal-actions-footer">
+            <button id="btn-edit-property" class="btn-edit">
+              <i class="fa-solid fa-pen-to-square"></i> កែប្រែ (Edit)
+            </button>
             <button id="btn-share-property" class="btn-share">
-              <i class="fa-solid fa-share-nodes"></i> ចែករំលែក (Share)
+              <i class="fa-solid fa-share-nodes"></i> ចែករំលែក
             </button>
             <button id="btn-delete-property" class="btn-danger">
-              <i class="fa-solid fa-trash-can"></i> លុប (Delete)
+              <i class="fa-solid fa-trash-can"></i> លុប
             </button>
           </div>
         </div>
+      </div>
+    </div>
+
+    <!-- Edit Property Modal -->
+    <div id="edit-modal" class="modal">
+      <div class="modal-backdrop" id="edit-modal-backdrop"></div>
+      <div class="modal-content add-modal-content">
+        <button class="modal-close" id="edit-modal-close-btn">&times;</button>
+        <div class="add-modal-header">
+          <h3><i class="fa-solid fa-pen-to-square"></i> កែប្រែព័ត៌មានអចលនទ្រព្យ</h3>
+          <p>កែប្រែឈ្មោះ តម្លៃ ម្ចាស់ផ្ទះ និងកត់ចំណាំ</p>
+        </div>
+        <form id="edit-property-form" class="add-form">
+          <input type="hidden" id="edit-id" />
+          
+          <div class="form-group">
+            <label>ឈ្មោះ ឬចំណងជើងអចលនទ្រព្យ *</label>
+            <input type="text" id="edit-title" placeholder="ឧ. ផ្ទះវីឡា ផ្លូវ 2004..." required />
+          </div>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label>ប្រភេទអចលនទ្រព្យ</label>
+              <select id="edit-type">
+                <option value="villa">🏠 ផ្ទះ/វីឡា</option>
+                <option value="condo">🏢 ខុនដូ</option>
+                <option value="land">🌾 ដីឡូត៍</option>
+                <option value="shophouse">🏪 ផ្ទះអាជីវកម្ម</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>តម្លៃ (ជម្រើស)</label>
+              <input type="text" id="edit-price" placeholder="ឧ. $120,000" />
+            </div>
+          </div>
+
+          <!-- Owner Contact Info Row -->
+          <div class="form-row">
+            <div class="form-group">
+              <label>ឈ្មោះម្ចាស់ផ្ទះ/ដី</label>
+              <input type="text" id="edit-owner-name" placeholder="ឧ. លោក សុខ" />
+            </div>
+            <div class="form-group">
+              <label>លេខទូរស័ព្ទម្ចាស់ (Phone)</label>
+              <input type="tel" id="edit-owner-phone" placeholder="ឧ. 012 345 678" />
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label>កត់ចំណាំបន្ថែម</label>
+            <textarea id="edit-notes" rows="3" placeholder="ទំហំដី បន្ទប់គេង ព័ត៌មានលម្អិត..."></textarea>
+          </div>
+
+          <button type="submit" class="btn-submit-add" style="background: linear-gradient(135deg, #2563eb, #1d4ed8);">
+            <i class="fa-solid fa-floppy-disk"></i> រក្សាទុកការកែប្រែ (Save Changes)
+          </button>
+        </form>
       </div>
     </div>
 

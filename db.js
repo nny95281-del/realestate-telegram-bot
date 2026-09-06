@@ -107,17 +107,23 @@ function clearAllDemoData() {
 }
 
 // Update property
-function updateProperty(id, { title, notes, price, propertyType }) {
+function updateProperty(id, { title, propertyType, price, ownerName, ownerPhone, notes }) {
   const current = getPropertyById(id);
   if (!current) return null;
 
   const newTitle = title !== undefined ? title : current.title;
-  const newNotes = notes !== undefined ? notes : current.notes;
-  const newPrice = price !== undefined ? price : current.price;
   const newType = propertyType !== undefined ? propertyType : current.property_type;
+  const newPrice = price !== undefined ? price : current.price;
+  const newOwnerName = ownerName !== undefined ? ownerName : current.owner_name;
+  const newOwnerPhone = ownerPhone !== undefined ? ownerPhone : current.owner_phone;
+  const newNotes = notes !== undefined ? notes : current.notes;
 
-  const stmt = db.prepare('UPDATE properties SET title = ?, notes = ?, price = ?, property_type = ? WHERE id = ?');
-  stmt.run(newTitle, newNotes, newPrice, newType, Number(id));
+  const stmt = db.prepare(`
+    UPDATE properties 
+    SET title = ?, property_type = ?, price = ?, owner_name = ?, owner_phone = ?, notes = ? 
+    WHERE id = ?
+  `);
+  stmt.run(newTitle, newType, newPrice, newOwnerName, newOwnerPhone, newNotes, Number(id));
   return getPropertyById(id);
 }
 

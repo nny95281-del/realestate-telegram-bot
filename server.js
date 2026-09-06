@@ -112,6 +112,30 @@ app.post('/api/properties', (req, res) => {
   }
 });
 
+// PUT /api/properties/:id - Update property details
+app.put('/api/properties/:id', (req, res) => {
+  try {
+    const { title, propertyType, price, ownerName, ownerPhone, notes } = req.body;
+    const updated = db.updateProperty(req.params.id, {
+      title,
+      propertyType,
+      price,
+      ownerName,
+      ownerPhone,
+      notes
+    });
+
+    if (!updated) {
+      return res.status(404).json({ success: false, message: 'Property not found' });
+    }
+
+    res.json({ success: true, data: updated });
+  } catch (error) {
+    console.error('Update error:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
 // DELETE /api/properties/:id - Delete property
 app.delete('/api/properties/:id', (req, res) => {
   try {

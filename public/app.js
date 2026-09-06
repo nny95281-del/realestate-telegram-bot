@@ -108,8 +108,21 @@ const elements = {
   btnGoogleMaps: document.getElementById('btn-google-maps'),
   btnWaze: document.getElementById('btn-waze'),
   btnAppleMaps: document.getElementById('btn-apple-maps'),
+  btnEditProperty: document.getElementById('btn-edit-property'),
   btnShareProperty: document.getElementById('btn-share-property'),
   btnDeleteProperty: document.getElementById('btn-delete-property'),
+  // Edit Property Modal Elements
+  editModal: document.getElementById('edit-modal'),
+  editModalBackdrop: document.getElementById('edit-modal-backdrop'),
+  editModalCloseBtn: document.getElementById('edit-modal-close-btn'),
+  editPropertyForm: document.getElementById('edit-property-form'),
+  editId: document.getElementById('edit-id'),
+  editTitle: document.getElementById('edit-title'),
+  editType: document.getElementById('edit-type'),
+  editPrice: document.getElementById('edit-price'),
+  editOwnerName: document.getElementById('edit-owner-name'),
+  editOwnerPhone: document.getElementById('edit-owner-phone'),
+  editNotes: document.getElementById('edit-notes'),
   toast: document.getElementById('toast')
 };
 
@@ -782,6 +795,79 @@ function locateUser() {
 }
 
 // ----------------------------------------------------
+// Edit Property Modal Logic
+// ----------------------------------------------------
+function openEditModal() {
+  if (!state.selectedProperty) return;
+  const p = state.selectedProperty;
+  triggerHaptic('impact', 'light');
+
+  elements.editId.value = p.id;
+  elements.editTitle.value = p.title || '';
+  elements.editType.value = p.property_type || 'villa';
+  elements.editPrice.value = p.price || '';
+  elements.editOwnerName.value = p.owner_name || '';
+  elements.editOwnerPhone.value = p.owner_phone || '';
+  elements.editNotes.value = p.notes || '';
+
+  closeDetailsModal();
+  elements.editModal.classList.add('active');
+}
+
+function closeEditModal() {
+  elements.editModal.classList.remove('active');
+}
+
+async function handleEditPropertySubmit(e) {
+  e.preventDefault();
+  triggerHaptic('impact', 'medium');
+
+  const id = elements.editId.value;
+  const title = elements.editTitle.value.trim();
+  const propertyType = elements.editType.value;
+  const price = elements.editPrice.value.trim();
+  const ownerName = elements.editOwnerName.value.trim();
+  const ownerPhone = elements.editOwnerPhone.value.trim();
+  const notes = elements.editNotes.value.trim();
+
+  if (!title) {
+    showToast('⚠️ សូមបំពេញឈ្មោះអចលនទ្រព្យ');
+    return;
+  }
+
+  showToast('⏳ កំពុងរក្សាទុកការកែប្រែ...');
+
+  try {
+    const res = await fetch(`/api/properties/${id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        title,
+        propertyType,
+        price,
+        ownerName,
+        ownerPhone,
+        notes
+      })
+    });
+
+    const result = await res.json();
+    if (result.success) {
+      triggerHaptic('notification', 'success');
+      showToast('🎉 បានកែប្រែព័ត៌មានជោគជ័យ!');
+      closeEditModal();
+      await fetchProperties();
+      openDetailsModal(Number(id)); // Re-open details with new values
+    } else {
+      showToast('⚠️ មិនអាចកែប្រែបានទេ');
+    }
+  } catch (err) {
+    console.error('Edit error:', err);
+    showToast('⚠️ បរាជ័យក្នុងការកែប្រែ');
+  }
+}
+
+// ----------------------------------------------------
 // Event Listeners Setup
 // ----------------------------------------------------
 function setupEventListeners() {
@@ -853,7 +939,13 @@ function setupEventListeners() {
   elements.modalBackdrop.addEventListener('click', closeDetailsModal);
   elements.btnDeleteProperty.addEventListener('click', deleteSelectedProperty);
   elements.btnCopyCoords.addEventListener('click', copyCoordsToClipboard);
+  elements.btnEditProperty.addEventListener('click', openEditModal);
   elements.btnShareProperty.addEventListener('click', sharePropertyDetails);
+
+  // Edit Modal
+  elements.editModalCloseBtn.addEventListener('click', closeEditModal);
+  elements.editModalBackdrop.addEventListener('click', closeEditModal);
+  elements.editPropertyForm.addEventListener('submit', handleEditPropertySubmit);
 }
 
 // Expose modal function for inline HTML popup button

@@ -909,7 +909,30 @@ body, html {
 
 .modal-actions-footer {
   display: flex;
-  gap: 10px;
+  gap: 8px;
+}
+
+.btn-edit {
+  flex: 1;
+  background: rgba(245, 158, 11, 0.15);
+  border: 1px solid rgba(245, 158, 11, 0.4);
+  color: #fbbf24;
+  padding: 10px 0;
+  border-radius: var(--radius-md);
+  font-size: 0.82rem;
+  font-weight: 600;
+  font-family: var(--font-family);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  transition: all 0.2s ease;
+}
+
+.btn-edit:hover {
+  background: #f59e0b;
+  color: #000;
 }
 
 .btn-share {
@@ -919,7 +942,7 @@ body, html {
   color: #60a5fa;
   padding: 10px 0;
   border-radius: var(--radius-md);
-  font-size: 0.85rem;
+  font-size: 0.82rem;
   font-weight: 600;
   font-family: var(--font-family);
   cursor: pointer;
@@ -942,7 +965,7 @@ body, html {
   color: #f87171;
   padding: 10px 0;
   border-radius: var(--radius-md);
-  font-size: 0.85rem;
+  font-size: 0.82rem;
   font-weight: 600;
   font-family: var(--font-family);
   cursor: pointer;
