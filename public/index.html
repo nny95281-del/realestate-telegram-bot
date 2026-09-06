@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="km">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>Real Estate Geotag Map | ផែនទីអចលនទ្រព្យ</title>
+  
+  <!-- Telegram WebApp SDK -->
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
+
+  <!-- Google Fonts: Inter & Kantumruy Pro for Khmer typography -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Kantumruy+Pro:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+  <!-- Leaflet.js CSS -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+
+  <!-- Font Awesome Icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
+
+  <!-- App Custom CSS -->
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <!-- App Container -->
+  <div id="app-container">
+    
+    <!-- Top Navigation & Search Bar -->
+    <header class="app-header">
+      <div class="header-top">
+        <div class="brand">
+          <div class="brand-icon"><i class="fa-solid fa-map-location-dot"></i></div>
+          <div class="brand-text">
+            <h1>ផែនទីអចលនទ្រព្យ</h1>
+            <span class="brand-subtitle">Real Estate Geotags</span>
+          </div>
+        </div>
+        <div class="header-actions">
+          <span id="property-count-badge" class="badge">0 ទីតាំង</span>
+          <button id="btn-toggle-list" class="icon-btn" title="បើក/បិទ បញ្ជី (Toggle List)">
+            <i class="fa-solid fa-list-ul"></i>
+          </button>
+        </div>
+      </div>
+
+      <!-- Search & Filter Bar -->
+      <div class="search-container">
+        <div class="search-input-wrapper">
+          <i class="fa-solid fa-magnifying-glass search-icon"></i>
+          <input type="text" id="search-input" placeholder="ស្វែងរកតាមឈ្មោះ ឬកត់ចំណាំ..." />
+          <button id="clear-search" class="clear-btn" style="display: none;">
+            <i class="fa-solid fa-xmark"></i>
+          </button>
+        </div>
+      </div>
+    </header>
+
+    <!-- Map Canvas Container -->
+    <main id="map-wrapper">
+      <div id="map"></div>
+
+      <!-- Floating Map Controls Overlay -->
+      <div class="map-floating-controls">
+        <button id="btn-locate-me" class="float-btn" title="ទីតាំងបច្ចុប្បន្នរបស់ខ្ញុំ (My Location)">
+          <i class="fa-solid fa-crosshairs"></i>
+        </button>
+        <button id="btn-layer-switch" class="float-btn" title="ប្តូរផ្កាយរណប/ផ្លូវ (Satellite/Street)">
+          <i class="fa-solid fa-layer-group"></i>
+        </button>
+        <button id="btn-refresh" class="float-btn" title="ផ្ទុកទិន្នន័យឡើងវិញ (Refresh)">
+          <i class="fa-solid fa-rotate-right"></i>
+        </button>
+      </div>
+
+      <!-- Quick Stats Card on Map -->
+      <div id="quick-stats-card" class="quick-stats-card">
+        <div class="stat-item">
+          <i class="fa-solid fa-house-circle-check"></i>
+          <div>
+            <div class="stat-val" id="stat-total">0</div>
+            <div class="stat-lbl">បានកត់ត្រា</div>
+          </div>
+        </div>
+        <div class="stat-divider"></div>
+        <div class="stat-item">
+          <i class="fa-solid fa-satellite-dish"></i>
+          <div>
+            <div class="stat-val" id="stat-active-layer">Street</div>
+            <div class="stat-lbl">ទម្រង់ផែនទី</div>
+          </div>
+        </div>
+      </div>
+    </main>
+
+    <!-- Slide-up Property List Drawer -->
+    <div id="properties-drawer" class="drawer">
+      <div class="drawer-handle-bar" id="drawer-handle">
+        <div class="drawer-pill"></div>
+      </div>
+      <div class="drawer-header">
+        <h3><i class="fa-solid fa-city"></i> បញ្ជីអចលនទ្រព្យដែលបានកត់ត្រា</h3>
+        <button id="btn-close-drawer" class="close-drawer-btn">
+          <i class="fa-solid fa-chevron-down"></i>
+        </button>
+      </div>
+      <div id="properties-list" class="properties-list">
+        <!-- Dynamic property items inserted here via JS -->
+        <div class="loading-state">
+          <i class="fa-solid fa-spinner fa-spin"></i>
+          <p>កំពុងទាញយកទិន្នន័យអចលនទ្រព្យ...</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Property Details Inspection Modal -->
+    <div id="details-modal" class="modal">
+      <div class="modal-backdrop" id="modal-backdrop"></div>
+      <div class="modal-content">
+        <button class="modal-close" id="modal-close-btn">&times;</button>
+        <div class="modal-image-container">
+          <img id="modal-image" src="" alt="Property" />
+          <div class="modal-date-tag" id="modal-date-tag"></div>
+        </div>
+        <div class="modal-body">
+          <h2 id="modal-title" class="modal-title">Property Title</h2>
+          <p id="modal-notes" class="modal-notes"></p>
+          
+          <div class="coords-box">
+            <i class="fa-solid fa-location-dot"></i>
+            <span id="modal-coords">11.5564, 104.9282</span>
+          </div>
+
+          <!-- Direct Navigation Links -->
+          <div class="action-buttons-grid">
+            <a id="btn-google-maps" href="#" target="_blank" class="nav-btn google">
+              <i class="fa-brands fa-google"></i> Google Maps
+            </a>
+            <a id="btn-waze" href="#" target="_blank" class="nav-btn waze">
+              <i class="fa-brands fa-waze"></i> Waze
+            </a>
+            <a id="btn-apple-maps" href="#" target="_blank" class="nav-btn apple">
+              <i class="fa-brands fa-apple"></i> Apple Maps
+            </a>
+          </div>
+
+          <div class="modal-footer">
+            <button id="btn-delete-property" class="btn-danger">
+              <i class="fa-solid fa-trash-can"></i> លុបទិន្នន័យ (Delete)
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Toast Notification -->
+    <div id="toast" class="toast"></div>
+
+  </div>
+
+  <!-- Leaflet.js JS -->
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <!-- App JS -->
+  <script src="app.js"></script>
+</body>
+</html>

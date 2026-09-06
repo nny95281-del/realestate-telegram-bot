@@ -1,0 +1,27 @@
+{
+  "name": "real-estate-geotag-bot",
+  "version": "1.0.0",
+  "description": "Telegram Bot & Leaflet.js Mini App for Real Estate Geotagging and Property Logging",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node --watch server.js"
+  },
+  "dependencies": {
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.7",
+    "express": "^4.21.2",
+    "telegraf": "^4.16.3"
+  },
+  "keywords": [
+    "telegram",
+    "telegram-bot",
+    "telegram-mini-app",
+    "twa",
+    "leaflet",
+    "geotagging",
+    "real-estate"
+  ],
+  "author": "Antigravity Real Estate",
+  "license": "MIT"
+}
