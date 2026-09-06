@@ -189,6 +189,7 @@ if (BOT_TOKEN && BOT_TOKEN !== 'YOUR_TELEGRAM_BOT_TOKEN_HERE') {
       const userFirstName = ctx.from.first_name || 'Agent';
       const welcomeMsg = 
 `👋 **សួស្តី ${userFirstName}! សូមស្វាគមន៍មកកាន់ Real Estate Geotag Bot** 🏡
+👑 _បង្កើតឡើងដោយ៖ លោក សយ សុវណ្ណមុន្នី_
 
 កម្មវិធីនេះជួយលោកអ្នកថតរូបអចលនទ្រព្យ និងភ្ជាប់ជាមួយទីតាំង GPS ជាក់ស្តែងដោយស្វ័យប្រវត្តិ។
 
@@ -210,6 +211,8 @@ if (BOT_TOKEN && BOT_TOKEN !== 'YOUR_TELEGRAM_BOT_TOKEN_HERE') {
   bot.command('help', async (ctx) => {
     const helpMsg = 
 `📌 **ការណែនាំអំពីការប្រើប្រាស់ (Guide):**
+👑 _បង្កើតឡើងដោយ៖ លោក សយ សុវណ្ណមុន្នី_
+
 • ផ្ញើរូបភាព (Photo) ➡️ រួចផ្ញើទីតាំង (Location) ដើម្បីកត់ត្រាអចលនទ្រព្យថ្មី
 • ចុច /map ដើម្បីបើក Mini App មើលផែនទី
 • ចុច /list ដើម្បីមើលបញ្ជីអចលនទ្រព្យដែលបានកត់ត្រា
