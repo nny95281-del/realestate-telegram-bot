@@ -609,6 +609,30 @@ if (BOT_TOKEN && BOT_TOKEN !== 'YOUR_TELEGRAM_BOT_TOKEN_HERE') {
     }
   });
 
+// Helper function: Download image directly into Base64 for permanent PostgreSQL storage
+async function fetchImageAsBase64(fileUrl) {
+  return new Promise((resolve, reject) => {
+    function get(url) {
+      https.get(url, (res) => {
+        if (res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
+          return get(res.headers.location);
+        }
+        if (res.statusCode !== 200) {
+          return reject(new Error(`Failed to download photo from Telegram, status: ${res.statusCode}`));
+        }
+        const chunks = [];
+        res.on('data', chunk => chunks.push(chunk));
+        res.on('end', () => {
+          const buffer = Buffer.concat(chunks);
+          const base64 = `data:image/jpeg;base64,${buffer.toString('base64')}`;
+          resolve({ base64, buffer });
+        });
+      }).on('error', reject);
+    }
+    get(fileUrl);
+  });
+}
+
   // Handle Incoming Photo ('photo' event)
   bot.on('photo', async (ctx) => {
     try {
@@ -618,14 +642,20 @@ if (BOT_TOKEN && BOT_TOKEN !== 'YOUR_TELEGRAM_BOT_TOKEN_HERE') {
       const fileId = highestResPhoto.file_id;
       const caption = ctx.message.caption || null;
 
-      // Get file link from Telegram
+      // Get file link from Telegram CDN
       const fileLink = await ctx.telegram.getFileLink(fileId);
-      const filename = `prop_${userId}_${Date.now()}.jpg`;
-      const localFilePath = path.join(UPLOADS_DIR, filename);
+      const linkHref = typeof fileLink === 'string' ? fileLink : (fileLink.href || fileLink.toString());
 
-      // Download photo to local uploads directory
-      await downloadTelegramFile(fileLink.href, localFilePath);
-      const publicImageUrl = `/uploads/${filename}`;
+      // Download photo into Base64 so it lives permanently in PostgreSQL database
+      const { base64, buffer } = await fetchImageAsBase64(linkHref);
+
+      // Save local backup file as well
+      const filename = `prop_${userId}_${Date.now()}.jpg`;
+      try {
+        fs.writeFileSync(path.join(UPLOADS_DIR, filename), buffer);
+      } catch (e) {}
+
+      const publicImageUrl = base64;
 
       // Check if user previously sent a location first
       const existingSession = sessionManager.getSession(userId);
@@ -634,7 +664,7 @@ if (BOT_TOKEN && BOT_TOKEN !== 'YOUR_TELEGRAM_BOT_TOKEN_HERE') {
         const loc = existingSession.location;
         const newProperty = await db.addProperty({
           telegramUserId: userId,
-          title: caption || `អចលនទ្រព្យ ${new Date().toLocaleTimeString('km-KH')}`,
+          title: caption || `អចលនទ្រព្យ #${Date.now().toString().slice(-4)}`,
           notes: caption || 'កត់ត្រាដោយស្វ័យប្រវត្តិតាម Telegram',
           imageUrl: publicImageUrl,
           latitude: loc.latitude,

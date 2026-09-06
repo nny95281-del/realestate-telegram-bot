@@ -498,7 +498,7 @@ function createCustomPin(property) {
   const popupHtml = `
     <div class="popup-card">
       <div class="popup-img-wrapper">
-        <img src="${thumbUrl}" loading="lazy" alt="${property.title}" />
+        <img src="${thumbUrl}" loading="lazy" alt="${escapeHtml(property.title)}" onerror="this.src='/logo.jpg'" />
         ${priceBadgeHtml}
       </div>
       <div class="popup-body">
@@ -556,7 +556,7 @@ function renderData() {
     state.markersLayer.addLayer(marker);
     bounds.push([prop.latitude, prop.longitude]);
 
-    const thumbUrl = prop.image_url || 'https://images.unsplash.com/photo-1568605114967-8130f3a36994?auto=format&fit=crop&w=150&q=80';
+    const thumbUrl = prop.image_url || '/logo.jpg';
     const dateFormatted = new Date(prop.created_at).toLocaleDateString('km-KH');
     const statusInfo = PROPERTY_STATUSES[prop.status] || PROPERTY_STATUSES.available;
 
@@ -571,7 +571,7 @@ function renderData() {
     const card = document.createElement('div');
     card.className = 'property-card-item';
     card.innerHTML = `
-      <img src="${thumbUrl}" loading="lazy" class="prop-thumb" alt="Thumbnail" />
+      <img src="${thumbUrl}" loading="lazy" class="prop-thumb" alt="Thumbnail" onerror="this.src='/logo.jpg'" />
       <div class="prop-info">
         <div class="prop-title-row">
           <div class="prop-title">${escapeHtml(prop.title)}</div>
