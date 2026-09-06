@@ -40,6 +40,9 @@ body, html {
   font-family: var(--font-family);
   background-color: var(--bg-dark);
   color: var(--text-main);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
 }
 
 #app-container {
@@ -49,6 +52,8 @@ body, html {
   width: 100vw;
   position: relative;
   overflow: hidden;
+  transform: translateZ(0); /* Force GPU Hardware Acceleration */
+  backface-visibility: hidden;
 }
 
 /* Header Styles */

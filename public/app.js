@@ -1,6 +1,6 @@
 /**
  * Real Estate Geotagging Mini App Frontend Logic
- * Leaflet.js Map + Telegram WebApp SDK Integration + Pro Features (Status & Measurement)
+ * Ultra-Optimized: 0ms SWR Local Caching + Fast Edge CDN Tiles + Hardware Acceleration
  */
 
 // Initialize Telegram WebApp if present
@@ -20,24 +20,21 @@ const state = {
   userLocation: null,
   map: null,
   markersLayer: null,
-  currentLayerType: 'street', // 'street' or 'satellite'
+  currentLayerType: 'street',
   streetTileLayer: null,
   satelliteTileLayer: null,
   selectedProperty: null,
-  // Map Pin Dropper state
   isPickingLocation: false,
   pickerMarker: null,
   pickedCoords: null,
-  // Photo upload state
   uploadedPhotoBase64: null,
-  // Land Measurement State
   isMeasuring: false,
   measurePoints: [],
   measureLayer: null
 };
 
-// Tile Layer URLs
-const STREET_TILES = 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png';
+// Ultra Fast Global Edge CDN Tile Layers
+const STREET_TILES = 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png';
 const SATELLITE_TILES = 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}';
 
 // Type Labels & Icons Mapping
@@ -149,21 +146,22 @@ const elements = {
 // ----------------------------------------------------
 // Toast Notifications & Haptics
 // ----------------------------------------------------
-function showToast(message, duration = 2500) {
+let toastTimeout = null;
+function showToast(message, duration = 2200) {
+  if (toastTimeout) clearTimeout(toastTimeout);
   elements.toast.textContent = message;
   elements.toast.classList.add('show');
-  setTimeout(() => {
+  toastTimeout = setTimeout(() => {
     elements.toast.classList.remove('show');
   }, duration);
 }
 
 function triggerHaptic(type = 'impact', style = 'light') {
   if (tg && tg.HapticFeedback) {
-    if (type === 'impact') {
-      tg.HapticFeedback.impactOccurred(style);
-    } else if (type === 'notification') {
-      tg.HapticFeedback.notificationOccurred(style);
-    }
+    try {
+      if (type === 'impact') tg.HapticFeedback.impactOccurred(style);
+      else if (type === 'notification') tg.HapticFeedback.notificationOccurred(style);
+    } catch (e) {}
   }
 }
 
@@ -171,7 +169,7 @@ function triggerHaptic(type = 'impact', style = 'light') {
 // Distance Calculation (Haversine Formula)
 // ----------------------------------------------------
 function calculateDistance(lat1, lon1, lat2, lon2) {
-  const R = 6371; // Radius in KM
+  const R = 6371;
   const dLat = (lat2 - lat1) * Math.PI / 180;
   const dLon = (lon2 - lon1) * Math.PI / 180;
   const a =
@@ -187,23 +185,33 @@ function calculateDistance(lat1, lon1, lat2, lon2) {
 }
 
 // ----------------------------------------------------
-// Map Initialization
+// Map Initialization with Fast Performance Settings
 // ----------------------------------------------------
 function initMap() {
   state.map = L.map('map', {
     center: [11.5564, 104.9282],
     zoom: 13,
-    zoomControl: false
+    zoomControl: false,
+    preferCanvas: true, // GPU Canvas Rendering
+    fadeAnimation: true,
+    markerZoomAnimation: true
   });
 
+  // Fast Street CDN Layer
   state.streetTileLayer = L.tileLayer(STREET_TILES, {
-    attribution: '&copy; OpenStreetMap',
-    maxZoom: 19
+    attribution: '&copy; CartoDB',
+    subdomains: 'abcd',
+    maxZoom: 19,
+    keepBuffer: 6,
+    updateWhenZooming: false
   });
 
+  // Fast Satellite Layer
   state.satelliteTileLayer = L.tileLayer(SATELLITE_TILES, {
-    attribution: '&copy; Esri Imagery',
-    maxZoom: 19
+    attribution: '&copy; Esri',
+    maxZoom: 19,
+    keepBuffer: 6,
+    updateWhenZooming: false
   });
 
   state.streetTileLayer.addTo(state.map);
@@ -220,7 +228,7 @@ function initMap() {
   });
 }
 
-// Switch Map Layers (Street <-> Satellite)
+// Switch Map Layers
 function toggleMapLayer() {
   triggerHaptic('impact', 'medium');
   if (state.currentLayerType === 'street') {
@@ -260,11 +268,9 @@ function toggleMeasureTool() {
 function addMeasurePoint(latlng) {
   triggerHaptic('impact', 'light');
   state.measurePoints.push(latlng);
-
   state.measureLayer.clearLayers();
 
-  // Draw points
-  state.measurePoints.forEach((pt, idx) => {
+  state.measurePoints.forEach((pt) => {
     L.circleMarker(pt, {
       radius: 6,
       fillColor: '#10b981',
@@ -275,14 +281,12 @@ function addMeasurePoint(latlng) {
   });
 
   if (state.measurePoints.length === 2) {
-    // Distance
     const p1 = state.measurePoints[0];
     const p2 = state.measurePoints[1];
     const dist = calculateDistance(p1.lat, p1.lng, p2.lat, p2.lng);
     L.polyline(state.measurePoints, { color: '#10b981', weight: 3, dashArray: '5, 5' }).addTo(state.measureLayer);
     elements.measureResult.textContent = `ប្រវែង៖ ${dist}`;
   } else if (state.measurePoints.length >= 3) {
-    // Polygon & Area calculation
     L.polygon(state.measurePoints, {
       color: '#10b981',
       fillColor: '#10b981',
@@ -299,7 +303,6 @@ function addMeasurePoint(latlng) {
   }
 }
 
-// Calculate approximate planar area for small geographic polygon in m²
 function calculatePolygonArea(latLngs) {
   if (latLngs.length < 3) return 0;
   const radius = 6378137;
@@ -402,7 +405,7 @@ function stopPickingLocation() {
 }
 
 // ----------------------------------------------------
-// Photo File Upload & Compression
+// Fast Photo Upload & High-Speed Canvas Compression
 // ----------------------------------------------------
 function handlePhotoFileSelect(e) {
   const file = e.target.files[0];
@@ -421,7 +424,7 @@ function handlePhotoFileSelect(e) {
       const canvas = document.createElement('canvas');
       let width = img.width;
       let height = img.height;
-      const maxDim = 1200;
+      const maxDim = 1000; // Lightweight 1000px for speed
 
       if (width > maxDim || height > maxDim) {
         if (width > height) {
@@ -438,7 +441,7 @@ function handlePhotoFileSelect(e) {
       const ctx = canvas.getContext('2d');
       ctx.drawImage(img, 0, 0, width, height);
 
-      const base64 = canvas.toDataURL('image/jpeg', 0.85);
+      const base64 = canvas.toDataURL('image/jpeg', 0.80);
       state.uploadedPhotoBase64 = base64;
 
       elements.photoPreviewImg.src = base64;
@@ -477,7 +480,7 @@ function createCustomPin(property) {
     html: `
       <div class="custom-map-pin" id="pin-${property.id}">
         <div class="pin-badge" style="border-color: ${pinBorderColor};">
-          <img src="${thumbUrl}" alt="Thumb" onerror="this.src='https://images.unsplash.com/photo-1568605114967-8130f3a36994?auto=format&fit=crop&w=150&q=80'" />
+          <img src="${thumbUrl}" loading="lazy" alt="Thumb" onerror="this.src='https://images.unsplash.com/photo-1568605114967-8130f3a36994?auto=format&fit=crop&w=150&q=80'" />
         </div>
         <div class="pin-arrow" style="border-top-color: ${pinBorderColor};"></div>
       </div>
@@ -495,7 +498,7 @@ function createCustomPin(property) {
   const popupHtml = `
     <div class="popup-card">
       <div class="popup-img-wrapper">
-        <img src="${thumbUrl}" alt="${property.title}" />
+        <img src="${thumbUrl}" loading="lazy" alt="${property.title}" />
         ${priceBadgeHtml}
       </div>
       <div class="popup-body">
@@ -523,12 +526,11 @@ function escapeHtml(str) {
 }
 
 // ----------------------------------------------------
-// Render Map Markers & Properties List
+// Render Map Markers & Properties List (Batched DOM updates)
 // ----------------------------------------------------
 function renderData() {
   state.markersLayer.clearLayers();
-  elements.propertiesList.innerHTML = '';
-
+  
   const list = state.filteredProperties;
   elements.propertyCountBadge.textContent = `${list.length} ទីតាំង`;
   elements.statTotal.textContent = list.length;
@@ -547,6 +549,7 @@ function renderData() {
   }
 
   const bounds = [];
+  const fragment = document.createDocumentFragment();
 
   list.forEach((prop) => {
     const marker = createCustomPin(prop);
@@ -568,7 +571,7 @@ function renderData() {
     const card = document.createElement('div');
     card.className = 'property-card-item';
     card.innerHTML = `
-      <img src="${thumbUrl}" class="prop-thumb" alt="Thumbnail" />
+      <img src="${thumbUrl}" loading="lazy" class="prop-thumb" alt="Thumbnail" />
       <div class="prop-info">
         <div class="prop-title-row">
           <div class="prop-title">${escapeHtml(prop.title)}</div>
@@ -594,8 +597,11 @@ function renderData() {
       closeDrawer();
     });
 
-    elements.propertiesList.appendChild(card);
+    fragment.appendChild(card);
   });
+
+  elements.propertiesList.innerHTML = '';
+  elements.propertiesList.appendChild(fragment);
 
   if (bounds.length > 0 && !elements.searchInput.value && state.activeFilter === 'all') {
     state.map.fitBounds(bounds, { padding: [50, 50], maxZoom: 15 });
@@ -604,41 +610,47 @@ function renderData() {
 
 function focusOnProperty(property, marker = null) {
   state.map.flyTo([property.latitude, property.longitude], 17, {
-    duration: 1.2,
-    easeLinearity: 0.25
+    duration: 0.8,
+    easeLinearity: 0.35
   });
 
   if (marker) {
     setTimeout(() => {
       marker.openPopup();
-    }, 1200);
+    }, 800);
   }
 }
 
 // ----------------------------------------------------
-// Fetch Properties API
+// 0ms SWR Local Cache + Fast Background API Fetch
 // ----------------------------------------------------
 async function fetchProperties() {
+  // 1. Instant Cache Load (0ms)
   try {
-    elements.propertiesList.innerHTML = `
-      <div class="loading-state">
-        <i class="fa-solid fa-spinner fa-spin"></i>
-        <p>កំពុងទាញយកទិន្នន័យអចលនទ្រព្យ...</p>
-      </div>
-    `;
+    const localCached = localStorage.getItem('realestate_properties_cache');
+    if (localCached && state.properties.length === 0) {
+      const parsed = JSON.parse(localCached);
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        state.properties = parsed;
+        applyFilters();
+      }
+    }
+  } catch (e) {}
 
+  // 2. Fetch Fresh Data from Server
+  try {
     const res = await fetch('/api/properties');
     const result = await res.json();
 
     if (result.success && Array.isArray(result.data)) {
       state.properties = result.data;
+      try {
+        localStorage.setItem('realestate_properties_cache', JSON.stringify(result.data));
+      } catch (e) {}
       applyFilters();
-    } else {
-      showToast('⚠️ មិនអាចទាញយកទិន្នន័យបានទេ');
     }
   } catch (error) {
     console.error('Fetch error:', error);
-    showToast('⚠️ មានបញ្ហាក្នុងការភ្ជាប់ទៅ Server');
   }
 }
 
@@ -686,13 +698,11 @@ function openDetailsModal(propertyId) {
   const typeInfo = PROPERTY_TYPES[property.property_type] || PROPERTY_TYPES.house;
   elements.modalTypeBadge.textContent = typeInfo.label;
 
-  // Status Badge
   const currentStatus = property.status || 'available';
   const statusInfo = PROPERTY_STATUSES[currentStatus] || PROPERTY_STATUSES.available;
   elements.modalStatusBadge.textContent = statusInfo.label;
   elements.modalStatusBadge.className = `modal-status-badge ${statusInfo.class}`;
 
-  // Update Status Switcher active state
   elements.statusBtns.forEach(btn => {
     const btnStatus = btn.getAttribute('data-set-status');
     btn.className = `status-btn ${btnStatus} ${btnStatus === currentStatus ? 'active' : ''}`;
@@ -1035,6 +1045,23 @@ function locateUser() {
 }
 
 // ----------------------------------------------------
+// Debounce Utility for Super Fast Smooth Typing
+// ----------------------------------------------------
+function debounce(func, wait) {
+  let timeout;
+  return function executedFunction(...args) {
+    const later = () => {
+      clearTimeout(timeout);
+      func(...args);
+    };
+    clearTimeout(timeout);
+    timeout = setTimeout(later, wait);
+  };
+}
+
+const debouncedApplyFilters = debounce(applyFilters, 120);
+
+// ----------------------------------------------------
 // Event Listeners Setup
 // ----------------------------------------------------
 function setupEventListeners() {
@@ -1055,10 +1082,10 @@ function setupEventListeners() {
     fetchProperties();
   });
 
-  // Search
+  // Fast Search with Debounce
   elements.searchInput.addEventListener('input', () => {
     elements.clearSearch.style.display = elements.searchInput.value ? 'block' : 'none';
-    applyFilters();
+    debouncedApplyFilters();
   });
   elements.clearSearch.addEventListener('click', () => {
     elements.searchInput.value = '';
