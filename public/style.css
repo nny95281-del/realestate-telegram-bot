@@ -176,11 +176,30 @@ body, html {
   transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-.filter-pill.active {
-  background: var(--primary);
-  color: #fff;
-  border-color: #60a5fa;
-  box-shadow: 0 2px 10px rgba(37, 99, 235, 0.4);
+.pill-divider {
+  width: 1px;
+  height: 20px;
+  background: var(--border-color);
+  margin: 0 4px;
+  align-self: center;
+}
+
+.filter-pill.status-pill-available.active {
+  background: rgba(16, 185, 129, 0.3);
+  border-color: #10b981;
+  color: #34d399;
+}
+
+.filter-pill.status-pill-booked.active {
+  background: rgba(245, 158, 11, 0.3);
+  border-color: #f59e0b;
+  color: #fbbf24;
+}
+
+.filter-pill.status-pill-sold.active {
+  background: rgba(239, 68, 68, 0.3);
+  border-color: #ef4444;
+  color: #f87171;
 }
 
 /* Search Bar */
@@ -698,10 +717,71 @@ body, html {
   object-fit: cover;
 }
 
-.modal-type-badge {
+/* Measure Banner */
+.measure-banner {
+  position: absolute;
+  top: 14px;
+  left: 14px;
+  right: 14px;
+  z-index: 1500;
+  background: rgba(15, 23, 42, 0.95);
+  backdrop-filter: blur(12px);
+  border: 1.5px solid #10b981;
+  border-radius: var(--radius-md);
+  padding: 10px 14px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  box-shadow: var(--shadow-lg);
+  animation: modalScaleUp 0.25s ease-out;
+}
+
+.measure-info {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.measure-info i {
+  color: #34d399;
+  font-size: 1.2rem;
+}
+
+.measure-val {
+  font-size: 0.92rem;
+  font-weight: 700;
+  color: #34d399;
+}
+
+.measure-sub {
+  font-size: 0.7rem;
+  color: var(--text-muted);
+}
+
+.btn-clear-measure {
+  background: rgba(239, 68, 68, 0.2);
+  color: #f87171;
+  border: 1px solid rgba(239, 68, 68, 0.4);
+  padding: 6px 12px;
+  border-radius: var(--radius-sm);
+  font-size: 0.76rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+/* Modal Top Badges */
+.modal-top-badges {
   position: absolute;
   top: 12px;
   left: 12px;
+  right: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  pointer-events: none;
+}
+
+.modal-type-badge {
   background: rgba(37, 99, 235, 0.85);
   backdrop-filter: blur(4px);
   padding: 4px 10px;
@@ -709,6 +789,92 @@ body, html {
   font-size: 0.75rem;
   font-weight: 600;
   color: #fff;
+}
+
+.modal-status-badge {
+  padding: 4px 10px;
+  border-radius: 20px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  backdrop-filter: blur(4px);
+}
+
+.modal-status-badge.available {
+  background: rgba(16, 185, 129, 0.85);
+  color: #fff;
+}
+
+.modal-status-badge.booked {
+  background: rgba(245, 158, 11, 0.85);
+  color: #000;
+}
+
+.modal-status-badge.sold {
+  background: rgba(239, 68, 68, 0.85);
+  color: #fff;
+}
+
+/* Quick Status Switcher in Details Modal */
+.status-switcher-bar {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  background: rgba(15, 23, 42, 0.6);
+  border: 1px solid var(--border-color);
+  padding: 8px 12px;
+  border-radius: var(--radius-md);
+  margin-bottom: 12px;
+}
+
+.status-switcher-lbl {
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  font-weight: 600;
+}
+
+.status-btn-group {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 6px;
+}
+
+.status-btn {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid var(--border-color);
+  color: var(--text-muted);
+  padding: 6px 4px;
+  border-radius: var(--radius-sm);
+  font-size: 0.72rem;
+  font-family: var(--font-family);
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.status-btn:hover {
+  background: rgba(255, 255, 255, 0.12);
+  color: #fff;
+}
+
+.status-btn.active.available {
+  background: rgba(16, 185, 129, 0.25);
+  border-color: #10b981;
+  color: #34d399;
+  box-shadow: 0 0 10px rgba(16, 185, 129, 0.3);
+}
+
+.status-btn.active.booked {
+  background: rgba(245, 158, 11, 0.25);
+  border-color: #f59e0b;
+  color: #fbbf24;
+  box-shadow: 0 0 10px rgba(245, 158, 11, 0.3);
+}
+
+.status-btn.active.sold {
+  background: rgba(239, 68, 68, 0.25);
+  border-color: #ef4444;
+  color: #f87171;
+  box-shadow: 0 0 10px rgba(239, 68, 68, 0.3);
 }
 
 .modal-date-tag {

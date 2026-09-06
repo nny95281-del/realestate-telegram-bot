@@ -58,13 +58,17 @@
         </div>
       </div>
 
-      <!-- Category Filter Pills -->
+      <!-- Category & Status Filter Pills -->
       <div class="category-filter-scroll">
-        <button class="filter-pill active" data-type="all">ទាំងអស់ (All)</button>
-        <button class="filter-pill" data-type="villa">🏠 ផ្ទះ/វីឡា</button>
-        <button class="filter-pill" data-type="condo">🏢 ខុនដូ</button>
-        <button class="filter-pill" data-type="land">🌾 ដីឡូត៍</button>
-        <button class="filter-pill" data-type="shophouse">🏪 ផ្ទះអាជីវកម្ម</button>
+        <button class="filter-pill active" data-filter="all">ទាំងអស់ (All)</button>
+        <button class="filter-pill status-pill-available" data-filter="status-available">🟢 សម្រាប់លក់</button>
+        <button class="filter-pill status-pill-booked" data-filter="status-booked">🟡 បានកក់</button>
+        <button class="filter-pill status-pill-sold" data-filter="status-sold">🔴 លក់ដាច់</button>
+        <div class="pill-divider"></div>
+        <button class="filter-pill" data-filter="type-villa">🏠 ផ្ទះ/វីឡា</button>
+        <button class="filter-pill" data-filter="type-condo">🏢 ខុនដូ</button>
+        <button class="filter-pill" data-filter="type-land">🌾 ដីឡូត៍</button>
+        <button class="filter-pill" data-filter="type-shophouse">🏪 ផ្ទះអាជីវកម្ម</button>
       </div>
     </header>
 
@@ -77,12 +81,27 @@
         <button id="btn-locate-me" class="float-btn" title="ទីតាំងបច្ចុប្បន្នរបស់ខ្ញុំ (My Location)">
           <i class="fa-solid fa-crosshairs"></i>
         </button>
+        <button id="btn-measure-tool" class="float-btn" title="វាស់ទំហំដី/ចម្ងាយ (Measure Land)">
+          <i class="fa-solid fa-ruler-combined"></i>
+        </button>
         <button id="btn-layer-switch" class="float-btn" title="ប្តូរផ្កាយរណប/ផ្លូវ (Satellite/Street)">
           <i class="fa-solid fa-layer-group"></i>
         </button>
         <button id="btn-refresh" class="float-btn" title="ផ្ទុកទិន្នន័យឡើងវិញ (Refresh)">
           <i class="fa-solid fa-rotate-right"></i>
         </button>
+      </div>
+
+      <!-- Land Measure Active Floating Banner -->
+      <div id="measure-banner" class="measure-banner" style="display: none;">
+        <div class="measure-info">
+          <i class="fa-solid fa-draw-polygon fa-beat"></i>
+          <div>
+            <div id="measure-result" class="measure-val">ចុចលើផែនទីដើម្បីវាស់</div>
+            <div class="measure-sub">ចុចតាមចំណុចព្រំដីដើម្បីគណនាទំហំ (m²)</div>
+          </div>
+        </div>
+        <button id="btn-clear-measure" class="btn-clear-measure">បញ្ចប់ការវាស់</button>
       </div>
 
       <!-- Quick Stats Card on Map -->
@@ -128,13 +147,26 @@
         <button class="modal-close" id="modal-close-btn">&times;</button>
         <div class="modal-image-container">
           <img id="modal-image" src="" alt="Property" />
-          <div class="modal-type-badge" id="modal-type-badge">🏠 ផ្ទះ/វីឡា</div>
+          <div class="modal-top-badges">
+            <div class="modal-type-badge" id="modal-type-badge">🏠 ផ្ទះ/វីឡា</div>
+            <div class="modal-status-badge" id="modal-status-badge">🟢 សម្រាប់លក់</div>
+          </div>
           <div class="modal-date-tag" id="modal-date-tag"></div>
         </div>
         <div class="modal-body">
           <div class="modal-title-row">
             <h2 id="modal-title" class="modal-title">Property Title</h2>
             <div id="modal-price" class="modal-price"></div>
+          </div>
+
+          <!-- Quick 1-Click Status Switcher -->
+          <div class="status-switcher-bar">
+            <span class="status-switcher-lbl">ប្តូរស្ថានភាព៖</span>
+            <div class="status-btn-group">
+              <button class="status-btn available" data-set-status="available">🟢 សម្រាប់លក់</button>
+              <button class="status-btn booked" data-set-status="booked">🟡 បានកក់</button>
+              <button class="status-btn sold" data-set-status="sold">🔴 លក់ដាច់</button>
+            </div>
           </div>
 
           <!-- Owner Contact Card in Details Modal -->
@@ -217,9 +249,18 @@
               </select>
             </div>
             <div class="form-group">
-              <label>តម្លៃ (ជម្រើស)</label>
-              <input type="text" id="edit-price" placeholder="ឧ. $120,000" />
+              <label>ស្ថានភាព (Status)</label>
+              <select id="edit-status">
+                <option value="available">🟢 សម្រាប់លក់ (Available)</option>
+                <option value="booked">🟡 បានកក់ (Booked)</option>
+                <option value="sold">🔴 លក់ដាច់ (Sold)</option>
+              </select>
             </div>
+          </div>
+
+          <div class="form-group">
+            <label>តម្លៃ (ជម្រើស)</label>
+            <input type="text" id="edit-price" placeholder="ឧ. $120,000" />
           </div>
 
           <!-- Owner Contact Info Row -->
@@ -301,19 +342,28 @@
               </select>
             </div>
             <div class="form-group">
-              <label>តម្លៃ (ជម្រើស)</label>
-              <input type="text" id="add-price" placeholder="ឧ. $120,000" />
+              <label>ស្ថានភាព (Status)</label>
+              <select id="add-status">
+                <option value="available">🟢 សម្រាប់លក់ (Available)</option>
+                <option value="booked">🟡 បានកក់ (Booked)</option>
+                <option value="sold">🔴 លក់ដាច់ (Sold)</option>
+              </select>
             </div>
+          </div>
+
+          <div class="form-group">
+            <label>តម្លៃ (ជម្រើស)</label>
+            <input type="text" id="add-price" placeholder="ឧ. $120,000" />
           </div>
 
           <!-- Owner Contact Info Row -->
           <div class="form-row">
             <div class="form-group">
-              <label>ឈ្មោះម្ចាស់ផ្ទះ/ដី (ជម្រើស)</label>
+              <label>ឈ្មោះម្ចាស់ផ្ទះ/ដី</label>
               <input type="text" id="add-owner-name" placeholder="ឧ. លោក សុខ" />
             </div>
             <div class="form-group">
-              <label>លេខទូរស័ព្ទម្ចាស់ (Phone) *</label>
+              <label>លេខទូរស័ព្ទម្ចាស់ (Phone)</label>
               <input type="tel" id="add-owner-phone" placeholder="ឧ. 012 345 678" />
             </div>
           </div>

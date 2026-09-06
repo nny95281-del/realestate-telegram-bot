@@ -16,6 +16,7 @@ function initDb() {
       price TEXT DEFAULT '',
       owner_name TEXT DEFAULT '',
       owner_phone TEXT DEFAULT '',
+      status TEXT DEFAULT 'available',
       notes TEXT,
       image_url TEXT,
       latitude REAL NOT NULL,
@@ -31,18 +32,21 @@ function initDb() {
   try {
     db.exec(`ALTER TABLE properties ADD COLUMN owner_phone TEXT DEFAULT '';`);
   } catch (e) {}
+  try {
+    db.exec(`ALTER TABLE properties ADD COLUMN status TEXT DEFAULT 'available';`);
+  } catch (e) {}
 
   console.log('✅ Official Database initialized: properties.db');
 }
 
 // Add new property record
-function addProperty({ telegramUserId = null, title = null, propertyType = 'house', price = '', ownerName = '', ownerPhone = '', notes = '', imageUrl, latitude, longitude }) {
+function addProperty({ telegramUserId = null, title = null, propertyType = 'house', price = '', ownerName = '', ownerPhone = '', status = 'available', notes = '', imageUrl, latitude, longitude }) {
   const finalTitle = title || `អចលនទ្រព្យ #${Date.now().toString().slice(-4)}`;
   const createdAt = new Date().toISOString();
 
   const stmt = db.prepare(`
-    INSERT INTO properties (telegram_user_id, title, property_type, price, owner_name, owner_phone, notes, image_url, latitude, longitude, created_at)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    INSERT INTO properties (telegram_user_id, title, property_type, price, owner_name, owner_phone, status, notes, image_url, latitude, longitude, created_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `);
 
   const result = stmt.run(
@@ -52,6 +56,7 @@ function addProperty({ telegramUserId = null, title = null, propertyType = 'hous
     price || '',
     ownerName || '',
     ownerPhone || '',
+    status || 'available',
     notes || '',
     imageUrl || '',
     Number(latitude),
@@ -67,6 +72,7 @@ function addProperty({ telegramUserId = null, title = null, propertyType = 'hous
     price,
     ownerName,
     ownerPhone,
+    status: status || 'available',
     notes,
     imageUrl,
     latitude: Number(latitude),
@@ -107,7 +113,7 @@ function clearAllDemoData() {
 }
 
 // Update property
-function updateProperty(id, { title, propertyType, price, ownerName, ownerPhone, notes }) {
+function updateProperty(id, { title, propertyType, price, ownerName, ownerPhone, status, notes }) {
   const current = getPropertyById(id);
   if (!current) return null;
 
@@ -116,14 +122,22 @@ function updateProperty(id, { title, propertyType, price, ownerName, ownerPhone,
   const newPrice = price !== undefined ? price : current.price;
   const newOwnerName = ownerName !== undefined ? ownerName : current.owner_name;
   const newOwnerPhone = ownerPhone !== undefined ? ownerPhone : current.owner_phone;
+  const newStatus = status !== undefined ? status : current.status || 'available';
   const newNotes = notes !== undefined ? notes : current.notes;
 
   const stmt = db.prepare(`
     UPDATE properties 
-    SET title = ?, property_type = ?, price = ?, owner_name = ?, owner_phone = ?, notes = ? 
+    SET title = ?, property_type = ?, price = ?, owner_name = ?, owner_phone = ?, status = ?, notes = ? 
     WHERE id = ?
   `);
-  stmt.run(newTitle, newType, newPrice, newOwnerName, newOwnerPhone, newNotes, Number(id));
+  stmt.run(newTitle, newType, newPrice, newOwnerName, newOwnerPhone, newStatus, newNotes, Number(id));
+  return getPropertyById(id);
+}
+
+// Quick 1-click update property status
+function updatePropertyStatus(id, status) {
+  const stmt = db.prepare(`UPDATE properties SET status = ? WHERE id = ?`);
+  stmt.run(status, Number(id));
   return getPropertyById(id);
 }
 
@@ -134,6 +148,7 @@ module.exports = {
   getPropertyById,
   deleteProperty,
   clearAllDemoData,
-  updateProperty
+  updateProperty,
+  updatePropertyStatus
 };
 

@@ -1,6 +1,6 @@
 /**
  * Real Estate Geotagging Mini App Frontend Logic
- * Leaflet.js Map + Telegram WebApp SDK Integration + Pro Features
+ * Leaflet.js Map + Telegram WebApp SDK Integration + Pro Features (Status & Measurement)
  */
 
 // Initialize Telegram WebApp if present
@@ -16,7 +16,7 @@ if (tg) {
 const state = {
   properties: [],
   filteredProperties: [],
-  selectedCategory: 'all',
+  activeFilter: 'all',
   userLocation: null,
   map: null,
   markersLayer: null,
@@ -29,7 +29,11 @@ const state = {
   pickerMarker: null,
   pickedCoords: null,
   // Photo upload state
-  uploadedPhotoBase64: null
+  uploadedPhotoBase64: null,
+  // Land Measurement State
+  isMeasuring: false,
+  measurePoints: [],
+  measureLayer: null
 };
 
 // Tile Layer URLs
@@ -43,6 +47,13 @@ const PROPERTY_TYPES = {
   land: { label: '🌾 ដីឡូត៍', short: 'Land' },
   shophouse: { label: '🏪 ផ្ទះអាជីវកម្ម', short: 'Shop' },
   house: { label: '🏠 ផ្ទះ', short: 'House' }
+};
+
+// Status Labels Mapping
+const PROPERTY_STATUSES = {
+  available: { label: '🟢 សម្រាប់លក់', class: 'available', text: 'សម្រាប់លក់' },
+  booked: { label: '🟡 បានកក់', class: 'booked', text: 'បានកក់' },
+  sold: { label: '🔴 លក់ដាច់', class: 'sold', text: 'លក់ដាច់' }
 };
 
 // DOM Elements
@@ -61,7 +72,12 @@ const elements = {
   btnLocateMe: document.getElementById('btn-locate-me'),
   btnLayerSwitch: document.getElementById('btn-layer-switch'),
   btnRefresh: document.getElementById('btn-refresh'),
+  btnMeasureTool: document.getElementById('btn-measure-tool'),
   filterPills: document.querySelectorAll('.filter-pill'),
+  // Measure Banner Elements
+  measureBanner: document.getElementById('measure-banner'),
+  measureResult: document.getElementById('measure-result'),
+  btnClearMeasure: document.getElementById('btn-clear-measure'),
   // Add Property Elements
   btnAddProperty: document.getElementById('btn-add-property'),
   addModal: document.getElementById('add-modal'),
@@ -70,6 +86,7 @@ const elements = {
   addPropertyForm: document.getElementById('add-property-form'),
   addTitle: document.getElementById('add-title'),
   addType: document.getElementById('add-type'),
+  addStatus: document.getElementById('add-status'),
   addPrice: document.getElementById('add-price'),
   addOwnerName: document.getElementById('add-owner-name'),
   addOwnerPhone: document.getElementById('add-owner-phone'),
@@ -95,6 +112,8 @@ const elements = {
   modalCloseBtn: document.getElementById('modal-close-btn'),
   modalImage: document.getElementById('modal-image'),
   modalTypeBadge: document.getElementById('modal-type-badge'),
+  modalStatusBadge: document.getElementById('modal-status-badge'),
+  statusBtns: document.querySelectorAll('.status-btn'),
   modalDateTag: document.getElementById('modal-date-tag'),
   modalTitle: document.getElementById('modal-title'),
   modalPrice: document.getElementById('modal-price'),
@@ -119,6 +138,7 @@ const elements = {
   editId: document.getElementById('edit-id'),
   editTitle: document.getElementById('edit-title'),
   editType: document.getElementById('edit-type'),
+  editStatus: document.getElementById('edit-status'),
   editPrice: document.getElementById('edit-price'),
   editOwnerName: document.getElementById('edit-owner-name'),
   editOwnerPhone: document.getElementById('edit-owner-phone'),
@@ -188,11 +208,14 @@ function initMap() {
 
   state.streetTileLayer.addTo(state.map);
   state.markersLayer = L.layerGroup().addTo(state.map);
+  state.measureLayer = L.layerGroup().addTo(state.map);
 
-  // Map Click Listener for Pin Dropper
+  // Map Click Listener
   state.map.on('click', (e) => {
     if (state.isPickingLocation) {
       updatePickerPosition(e.latlng.lat, e.latlng.lng);
+    } else if (state.isMeasuring) {
+      addMeasurePoint(e.latlng);
     }
   });
 }
@@ -216,6 +239,89 @@ function toggleMapLayer() {
 }
 
 // ----------------------------------------------------
+// Land Area & Distance Measurement Tool
+// ----------------------------------------------------
+function toggleMeasureTool() {
+  triggerHaptic('impact', 'medium');
+  state.isMeasuring = !state.isMeasuring;
+
+  if (state.isMeasuring) {
+    elements.measureBanner.style.display = 'flex';
+    elements.btnMeasureTool.style.background = '#10b981';
+    state.measurePoints = [];
+    state.measureLayer.clearLayers();
+    elements.measureResult.textContent = 'ចុចលើផែនទីដើម្បីវាស់';
+    showToast('📏 របៀបវាស់ដី៖ ចុចតាមជ្រុងព្រំដីលើផែនទី');
+  } else {
+    clearMeasurement();
+  }
+}
+
+function addMeasurePoint(latlng) {
+  triggerHaptic('impact', 'light');
+  state.measurePoints.push(latlng);
+
+  state.measureLayer.clearLayers();
+
+  // Draw points
+  state.measurePoints.forEach((pt, idx) => {
+    L.circleMarker(pt, {
+      radius: 6,
+      fillColor: '#10b981',
+      color: '#ffffff',
+      weight: 2,
+      fillOpacity: 1
+    }).addTo(state.measureLayer);
+  });
+
+  if (state.measurePoints.length === 2) {
+    // Distance
+    const p1 = state.measurePoints[0];
+    const p2 = state.measurePoints[1];
+    const dist = calculateDistance(p1.lat, p1.lng, p2.lat, p2.lng);
+    L.polyline(state.measurePoints, { color: '#10b981', weight: 3, dashArray: '5, 5' }).addTo(state.measureLayer);
+    elements.measureResult.textContent = `ប្រវែង៖ ${dist}`;
+  } else if (state.measurePoints.length >= 3) {
+    // Polygon & Area calculation
+    L.polygon(state.measurePoints, {
+      color: '#10b981',
+      fillColor: '#10b981',
+      fillOpacity: 0.25,
+      weight: 2
+    }).addTo(state.measureLayer);
+
+    const areaM2 = calculatePolygonArea(state.measurePoints);
+    if (areaM2 >= 10000) {
+      elements.measureResult.textContent = `ទំហំ៖ ${(areaM2 / 10000).toFixed(2)} ហិកតា (${Math.round(areaM2).toLocaleString()} m²)`;
+    } else {
+      elements.measureResult.textContent = `ទំហំ៖ ${Math.round(areaM2).toLocaleString()} ម៉ែត្រការ៉េ (m²)`;
+    }
+  }
+}
+
+// Calculate approximate planar area for small geographic polygon in m²
+function calculatePolygonArea(latLngs) {
+  if (latLngs.length < 3) return 0;
+  const radius = 6378137;
+  let total = 0;
+  for (let i = 0; i < latLngs.length; i++) {
+    const p1 = latLngs[i];
+    const p2 = latLngs[(i + 1) % latLngs.length];
+    total += (p2.lng * Math.PI / 180 - p1.lng * Math.PI / 180) *
+             (2 + Math.sin(p1.lat * Math.PI / 180) + Math.sin(p2.lat * Math.PI / 180));
+  }
+  return Math.abs(total * radius * radius / 2);
+}
+
+function clearMeasurement() {
+  state.isMeasuring = false;
+  elements.measureBanner.style.display = 'none';
+  elements.btnMeasureTool.style.background = '';
+  state.measurePoints = [];
+  state.measureLayer.clearLayers();
+}
+
+// ----------------------------------------------------
 // Pin Dropper (Pick Location on Map)
 // ----------------------------------------------------
 function startPickingLocation() {
@@ -228,7 +334,6 @@ function startPickingLocation() {
   const initLat = parseFloat(elements.addLat.value) || center.lat;
   const initLng = parseFloat(elements.addLng.value) || center.lng;
 
-  // Create or move picker marker
   const pickerIcon = L.divIcon({
     className: 'picker-pin-icon',
     html: `
@@ -313,7 +418,6 @@ function handlePhotoFileSelect(e) {
   reader.onload = (event) => {
     const img = new Image();
     img.onload = () => {
-      // Compress image via Canvas to max 1200px
       const canvas = document.createElement('canvas');
       let width = img.width;
       let height = img.height;
@@ -337,7 +441,6 @@ function handlePhotoFileSelect(e) {
       const base64 = canvas.toDataURL('image/jpeg', 0.85);
       state.uploadedPhotoBase64 = base64;
 
-      // Show preview
       elements.photoPreviewImg.src = base64;
       elements.photoUploadPlaceholder.style.display = 'none';
       elements.photoPreviewWrapper.style.display = 'block';
@@ -363,15 +466,20 @@ function removeSelectedPhoto(e) {
 // ----------------------------------------------------
 function createCustomPin(property) {
   const thumbUrl = property.image_url || 'https://images.unsplash.com/photo-1568605114967-8130f3a36994?auto=format&fit=crop&w=150&q=80';
-  
+  const statusInfo = PROPERTY_STATUSES[property.status] || PROPERTY_STATUSES.available;
+
+  let pinBorderColor = '#2563eb';
+  if (property.status === 'booked') pinBorderColor = '#f59e0b';
+  if (property.status === 'sold') pinBorderColor = '#ef4444';
+
   const customIcon = L.divIcon({
     className: 'custom-map-pin-container',
     html: `
       <div class="custom-map-pin" id="pin-${property.id}">
-        <div class="pin-badge">
+        <div class="pin-badge" style="border-color: ${pinBorderColor};">
           <img src="${thumbUrl}" alt="Thumb" onerror="this.src='https://images.unsplash.com/photo-1568605114967-8130f3a36994?auto=format&fit=crop&w=150&q=80'" />
         </div>
-        <div class="pin-arrow"></div>
+        <div class="pin-arrow" style="border-top-color: ${pinBorderColor};"></div>
       </div>
     `,
     iconSize: [46, 54],
@@ -392,6 +500,7 @@ function createCustomPin(property) {
       </div>
       <div class="popup-body">
         <div class="popup-title">${escapeHtml(property.title)}</div>
+        <div style="font-size: 0.72rem; color: #94a3b8; margin-bottom: 6px;">${statusInfo.label}</div>
         <div class="popup-date"><i class="fa-regular fa-clock"></i> ${dateFormatted}</div>
         <button class="popup-btn" onclick="window.app.openDetailsModal(${property.id})">
           <i class="fa-solid fa-circle-info"></i> មើលព័ត៌មានលម្អិត
@@ -446,7 +555,8 @@ function renderData() {
 
     const thumbUrl = prop.image_url || 'https://images.unsplash.com/photo-1568605114967-8130f3a36994?auto=format&fit=crop&w=150&q=80';
     const dateFormatted = new Date(prop.created_at).toLocaleDateString('km-KH');
-    
+    const statusInfo = PROPERTY_STATUSES[prop.status] || PROPERTY_STATUSES.available;
+
     let distBadge = '';
     if (state.userLocation) {
       const dist = calculateDistance(state.userLocation.lat, state.userLocation.lng, prop.latitude, prop.longitude);
@@ -463,6 +573,9 @@ function renderData() {
         <div class="prop-title-row">
           <div class="prop-title">${escapeHtml(prop.title)}</div>
           ${priceHtml}
+        </div>
+        <div style="font-size: 0.72rem; margin-bottom: 3px;">
+          <span style="background: rgba(255,255,255,0.08); padding: 2px 6px; border-radius: 6px;">${statusInfo.label}</span>
         </div>
         <div class="prop-notes">${escapeHtml(prop.notes || 'គ្មានកត់ចំណាំ')}</div>
         <div class="prop-meta">
@@ -484,7 +597,7 @@ function renderData() {
     elements.propertiesList.appendChild(card);
   });
 
-  if (bounds.length > 0 && !elements.searchInput.value && state.selectedCategory === 'all') {
+  if (bounds.length > 0 && !elements.searchInput.value && state.activeFilter === 'all') {
     state.map.fitBounds(bounds, { padding: [50, 50], maxZoom: 15 });
   }
 }
@@ -531,21 +644,31 @@ async function fetchProperties() {
 
 function applyFilters() {
   const query = elements.searchInput.value.toLowerCase().trim();
-  const category = state.selectedCategory;
+  const filter = state.activeFilter;
 
   state.filteredProperties = state.properties.filter(p => {
-    const matchCategory = (category === 'all') || (p.property_type === category);
+    let matchFilter = true;
+    if (filter.startsWith('status-')) {
+      const statusKey = filter.replace('status-', '');
+      matchFilter = (p.status || 'available') === statusKey;
+    } else if (filter.startsWith('type-')) {
+      const typeKey = filter.replace('type-', '');
+      matchFilter = p.property_type === typeKey;
+    }
+
     const matchTitle = p.title && p.title.toLowerCase().includes(query);
     const matchNotes = p.notes && p.notes.toLowerCase().includes(query);
     const matchPrice = p.price && p.price.toLowerCase().includes(query);
-    return matchCategory && (matchTitle || matchNotes || matchPrice || !query);
+    const matchOwner = p.owner_phone && p.owner_phone.includes(query);
+
+    return matchFilter && (matchTitle || matchNotes || matchPrice || matchOwner || !query);
   });
 
   renderData();
 }
 
 // ----------------------------------------------------
-// Details Modal Logic
+// Details Modal Logic & Status Switcher
 // ----------------------------------------------------
 function openDetailsModal(propertyId) {
   const property = state.properties.find(p => p.id === Number(propertyId));
@@ -562,6 +685,18 @@ function openDetailsModal(propertyId) {
 
   const typeInfo = PROPERTY_TYPES[property.property_type] || PROPERTY_TYPES.house;
   elements.modalTypeBadge.textContent = typeInfo.label;
+
+  // Status Badge
+  const currentStatus = property.status || 'available';
+  const statusInfo = PROPERTY_STATUSES[currentStatus] || PROPERTY_STATUSES.available;
+  elements.modalStatusBadge.textContent = statusInfo.label;
+  elements.modalStatusBadge.className = `modal-status-badge ${statusInfo.class}`;
+
+  // Update Status Switcher active state
+  elements.statusBtns.forEach(btn => {
+    const btnStatus = btn.getAttribute('data-set-status');
+    btn.className = `status-btn ${btnStatus} ${btnStatus === currentStatus ? 'active' : ''}`;
+  });
 
   if (property.price) {
     elements.modalPrice.textContent = property.price;
@@ -604,6 +739,32 @@ function closeDetailsModal() {
   state.selectedProperty = null;
 }
 
+// 1-Click Status Switcher
+async function handleStatusSwitch(newStatus) {
+  if (!state.selectedProperty) return;
+  triggerHaptic('impact', 'medium');
+
+  const id = state.selectedProperty.id;
+  try {
+    const res = await fetch(`/api/properties/${id}/status`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ status: newStatus })
+    });
+    const result = await res.json();
+
+    if (result.success) {
+      triggerHaptic('notification', 'success');
+      showToast(`✅ បានប្តូរស្ថានភាពទៅ៖ ${PROPERTY_STATUSES[newStatus].label}`);
+      await fetchProperties();
+      openDetailsModal(id);
+    }
+  } catch (err) {
+    console.error('Status error:', err);
+    showToast('⚠️ មិនអាចប្តូរស្ថានភាពបានទេ');
+  }
+}
+
 // Copy Coordinates
 function copyCoordsToClipboard() {
   if (!state.selectedProperty) return;
@@ -619,17 +780,18 @@ function sharePropertyDetails() {
   if (!state.selectedProperty) return;
   const p = state.selectedProperty;
   const typeInfo = PROPERTY_TYPES[p.property_type] || PROPERTY_TYPES.house;
+  const statusInfo = PROPERTY_STATUSES[p.status] || PROPERTY_STATUSES.available;
   const priceText = p.price ? `💰 តម្លៃ: ${p.price}\n` : '';
+  const statusText = `📌 ស្ថានភាព: ${statusInfo.label}\n`;
   const ownerText = p.owner_phone ? `📞 ម្ចាស់ផ្ទះ: ${p.owner_name ? p.owner_name + ' - ' : ''}${p.owner_phone}\n` : '';
   const notesText = p.notes ? `📝 ${p.notes}\n` : '';
   const coordsText = `📍 ទីតាំង GPS: ${p.latitude.toFixed(6)}, ${p.longitude.toFixed(6)}`;
   const gmapsUrl = `https://www.google.com/maps/search/?api=1&query=${p.latitude},${p.longitude}`;
   
-  const shareText = `${typeInfo.label} - ${p.title}\n${priceText}${ownerText}${notesText}${coordsText}\n🗺️ ផែនទី: ${gmapsUrl}`;
+  const shareText = `${typeInfo.label} - ${p.title}\n${priceText}${statusText}${ownerText}${notesText}${coordsText}\n🗺️ ផែនទី: ${gmapsUrl}`;
 
   triggerHaptic('impact', 'medium');
 
-  // Telegram Direct Share Link
   const telegramShareUrl = `https://t.me/share/url?url=${encodeURIComponent(gmapsUrl)}&text=${encodeURIComponent(shareText)}`;
 
   if (tg && tg.openTelegramLink) {
@@ -694,6 +856,7 @@ async function handleAddPropertySubmit(e) {
 
   const title = elements.addTitle.value.trim();
   const propertyType = elements.addType.value;
+  const status = elements.addStatus.value;
   const price = elements.addPrice.value.trim();
   const ownerName = elements.addOwnerName ? elements.addOwnerName.value.trim() : '';
   const ownerPhone = elements.addOwnerPhone ? elements.addOwnerPhone.value.trim() : '';
@@ -715,6 +878,7 @@ async function handleAddPropertySubmit(e) {
       body: JSON.stringify({
         title,
         propertyType,
+        status,
         price,
         ownerName,
         ownerPhone,
@@ -740,6 +904,82 @@ async function handleAddPropertySubmit(e) {
   } catch (err) {
     console.error('Add error:', err);
     showToast('⚠️ បរាជ័យក្នុងការរក្សាទុក');
+  }
+}
+
+// ----------------------------------------------------
+// Edit Property Modal Logic
+// ----------------------------------------------------
+function openEditModal() {
+  if (!state.selectedProperty) return;
+  const p = state.selectedProperty;
+  triggerHaptic('impact', 'light');
+
+  elements.editId.value = p.id;
+  elements.editTitle.value = p.title || '';
+  elements.editType.value = p.property_type || 'villa';
+  elements.editStatus.value = p.status || 'available';
+  elements.editPrice.value = p.price || '';
+  elements.editOwnerName.value = p.owner_name || '';
+  elements.editOwnerPhone.value = p.owner_phone || '';
+  elements.editNotes.value = p.notes || '';
+
+  closeDetailsModal();
+  elements.editModal.classList.add('active');
+}
+
+function closeEditModal() {
+  elements.editModal.classList.remove('active');
+}
+
+async function handleEditPropertySubmit(e) {
+  e.preventDefault();
+  triggerHaptic('impact', 'medium');
+
+  const id = elements.editId.value;
+  const title = elements.editTitle.value.trim();
+  const propertyType = elements.editType.value;
+  const status = elements.editStatus.value;
+  const price = elements.editPrice.value.trim();
+  const ownerName = elements.editOwnerName.value.trim();
+  const ownerPhone = elements.editOwnerPhone.value.trim();
+  const notes = elements.editNotes.value.trim();
+
+  if (!title) {
+    showToast('⚠️ សូមបំពេញឈ្មោះអចលនទ្រព្យ');
+    return;
+  }
+
+  showToast('⏳ កំពុងរក្សាទុកការកែប្រែ...');
+
+  try {
+    const res = await fetch(`/api/properties/${id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        title,
+        propertyType,
+        status,
+        price,
+        ownerName,
+        ownerPhone,
+        notes
+      })
+    });
+
+    const result = await res.json();
+    if (result.success) {
+      triggerHaptic('notification', 'success');
+      showToast('🎉 បានកែប្រែព័ត៌មានជោគជ័យ!');
+      closeEditModal();
+      await fetchProperties();
+      openDetailsModal(Number(id));
+    } else {
+      showToast('⚠️ មិនអាចកែប្រែបានទេ');
+    }
+  } catch (err) {
+    console.error('Edit error:', err);
+    showToast('⚠️ បរាជ័យក្នុងការកែប្រែ');
   }
 }
 
@@ -795,79 +1035,6 @@ function locateUser() {
 }
 
 // ----------------------------------------------------
-// Edit Property Modal Logic
-// ----------------------------------------------------
-function openEditModal() {
-  if (!state.selectedProperty) return;
-  const p = state.selectedProperty;
-  triggerHaptic('impact', 'light');
-
-  elements.editId.value = p.id;
-  elements.editTitle.value = p.title || '';
-  elements.editType.value = p.property_type || 'villa';
-  elements.editPrice.value = p.price || '';
-  elements.editOwnerName.value = p.owner_name || '';
-  elements.editOwnerPhone.value = p.owner_phone || '';
-  elements.editNotes.value = p.notes || '';
-
-  closeDetailsModal();
-  elements.editModal.classList.add('active');
-}
-
-function closeEditModal() {
-  elements.editModal.classList.remove('active');
-}
-
-async function handleEditPropertySubmit(e) {
-  e.preventDefault();
-  triggerHaptic('impact', 'medium');
-
-  const id = elements.editId.value;
-  const title = elements.editTitle.value.trim();
-  const propertyType = elements.editType.value;
-  const price = elements.editPrice.value.trim();
-  const ownerName = elements.editOwnerName.value.trim();
-  const ownerPhone = elements.editOwnerPhone.value.trim();
-  const notes = elements.editNotes.value.trim();
-
-  if (!title) {
-    showToast('⚠️ សូមបំពេញឈ្មោះអចលនទ្រព្យ');
-    return;
-  }
-
-  showToast('⏳ កំពុងរក្សាទុកការកែប្រែ...');
-
-  try {
-    const res = await fetch(`/api/properties/${id}`, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        title,
-        propertyType,
-        price,
-        ownerName,
-        ownerPhone,
-        notes
-      })
-    });
-
-    const result = await res.json();
-    if (result.success) {
-      triggerHaptic('notification', 'success');
-      showToast('🎉 បានកែប្រែព័ត៌មានជោគជ័យ!');
-      closeEditModal();
-      await fetchProperties();
-      openDetailsModal(Number(id)); // Re-open details with new values
-    } else {
-      showToast('⚠️ មិនអាចកែប្រែបានទេ');
-    }
-  } catch (err) {
-    console.error('Edit error:', err);
-    showToast('⚠️ បរាជ័យក្នុងការកែប្រែ');
-  }
-}
-
-// ----------------------------------------------------
 // Event Listeners Setup
 // ----------------------------------------------------
 function setupEventListeners() {
@@ -879,6 +1046,9 @@ function setupEventListeners() {
   // Map Controls
   elements.btnLayerSwitch.addEventListener('click', toggleMapLayer);
   elements.btnLocateMe.addEventListener('click', locateUser);
+  elements.btnMeasureTool.addEventListener('click', toggleMeasureTool);
+  elements.btnClearMeasure.addEventListener('click', clearMeasurement);
+
   elements.btnRefresh.addEventListener('click', () => {
     triggerHaptic('impact', 'light');
     showToast('🔄 កំពុងផ្ទុកទិន្នន័យឡើងវិញ...');
@@ -896,13 +1066,13 @@ function setupEventListeners() {
     applyFilters();
   });
 
-  // Category Filter Pills
+  // Filter Pills (Category & Status)
   elements.filterPills.forEach(pill => {
     pill.addEventListener('click', () => {
       triggerHaptic('impact', 'light');
       elements.filterPills.forEach(p => p.classList.remove('active'));
       pill.classList.add('active');
-      state.selectedCategory = pill.getAttribute('data-type');
+      state.activeFilter = pill.getAttribute('data-filter');
       applyFilters();
     });
   });
@@ -932,6 +1102,14 @@ function setupEventListeners() {
     } else {
       locateUser();
     }
+  });
+
+  // Status Switcher inside Details Modal
+  elements.statusBtns.forEach(btn => {
+    btn.addEventListener('click', () => {
+      const newStatus = btn.getAttribute('data-set-status');
+      handleStatusSwitch(newStatus);
+    });
   });
 
   // Details Modal

@@ -65,10 +65,10 @@ app.get('/api/properties/:id', (req, res) => {
   }
 });
 
-// POST /api/properties - Create property from webapp (Supports base64 image upload & owner details)
+// POST /api/properties - Create property from webapp (Supports base64 image upload & owner details & status)
 app.post('/api/properties', (req, res) => {
   try {
-    const { telegramUserId, title, propertyType, price, ownerName, ownerPhone, notes, imageUrl, imageBase64, latitude, longitude } = req.body;
+    const { telegramUserId, title, propertyType, price, ownerName, ownerPhone, status, notes, imageUrl, imageBase64, latitude, longitude } = req.body;
     if (!latitude || !longitude) {
       return res.status(400).json({ success: false, message: 'Latitude and longitude are required' });
     }
@@ -99,6 +99,7 @@ app.post('/api/properties', (req, res) => {
       price: price || '',
       ownerName: ownerName || '',
       ownerPhone: ownerPhone || '',
+      status: status || 'available',
       notes,
       imageUrl: finalImageUrl,
       latitude,
@@ -115,13 +116,14 @@ app.post('/api/properties', (req, res) => {
 // PUT /api/properties/:id - Update property details
 app.put('/api/properties/:id', (req, res) => {
   try {
-    const { title, propertyType, price, ownerName, ownerPhone, notes } = req.body;
+    const { title, propertyType, price, ownerName, ownerPhone, status, notes } = req.body;
     const updated = db.updateProperty(req.params.id, {
       title,
       propertyType,
       price,
       ownerName,
       ownerPhone,
+      status,
       notes
     });
 
@@ -132,6 +134,23 @@ app.put('/api/properties/:id', (req, res) => {
     res.json({ success: true, data: updated });
   } catch (error) {
     console.error('Update error:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// PATCH /api/properties/:id/status - Quick 1-click status update
+app.patch('/api/properties/:id/status', (req, res) => {
+  try {
+    const { status } = req.body;
+    if (!status) {
+      return res.status(400).json({ success: false, message: 'Status is required' });
+    }
+    const updated = db.updatePropertyStatus(req.params.id, status);
+    if (!updated) {
+      return res.status(404).json({ success: false, message: 'Property not found' });
+    }
+    res.json({ success: true, data: updated });
+  } catch (error) {
     res.status(500).json({ success: false, error: error.message });
   }
 });
